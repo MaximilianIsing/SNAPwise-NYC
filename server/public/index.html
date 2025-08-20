@@ -256,28 +256,43 @@
     @media (max-width: 600px){
       header{ padding:10px 12px }
       header .logo{ width:24px; height:24px }
-      header h1{ font-size:18px }
+      header h1{ font-size:22px }
       /* Override generic flex so the first row fits */
-      #zip{ flex:1 1 150px }
-      #radius{ flex:0 0 88px }
-      #healthy{ flex:0 0 140px }
-      .controls button{ padding:8px 12px }
+      header .controls{ gap:4px }
+      #zip{ flex:1 1 160px; min-width:0 }
+      #radius{ flex:0 0 80px }
+      #healthy{ flex:0 0 120px }
+      .controls input, .controls select{ padding:6px 8px; font-size:14px }
+      .controls button{ padding:7px 10px; font-size:14px }
       .tabs button{ padding:6px; font-size:12px }
       .legend{ left:8px; bottom:8px; padding:6px 8px }
-      /* Home (onboarding) compact layout */
-      .onboard{ align-items:stretch; justify-content:flex-start; padding: max(12px, env(safe-area-inset-top)) 12px 16px }
-      .onboard .title-hero{ font-size:34px; margin:8px 0 12px 0 }
-      .onboard .logo-wrap img{ width:80px; height:80px }
-      .onboard .card{ width:min(100vw - 24px, 520px); padding:16px; margin:0 auto }
-      .onboard .bg-fruit{ display:none }
-      .goals{ display:grid; grid-template-columns: 1fr 1fr; gap:8px }
-      .goal{ min-height:56px }
+      /* Home (onboarding) compact layout for iOS/small screens */  
+      .onboard{ align-items:stretch; justify-content:flex-start; padding: max(12px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom)); height:100svh; overflow:auto }
+      .onboard .title-hero{ font-size:clamp(36px, 8vw, 48px); margin:8px 0 10px 0 }
+      .onboard .logo-wrap img{ width:72px; height:72px }
+      .onboard .card{ width:min(90vw, 520px); padding:12px; margin:0 auto; max-height:calc(100svh - 120px); overflow:auto; box-sizing:border-box }
+      .onboard .card h2{ font-size:clamp(18px, 5.8vw, 24px); line-height:1.25; margin:6px 0 8px 0 }
+      .onboard .bg-fruit{ display:block }
+      .goals{ display:grid; grid-template-columns: 1fr; gap:6px }
+      .goal{ min-height:40px; padding:8px 10px; border-radius:10px; font-size:clamp(13px, 3.8vw, 15px) }
+      .onboard .field label{ font-size:14px }
+      .onboard .radio-group{ gap:10px }
       .onboard .actions{ flex-wrap:wrap }
-      .onboard .actions .btn{ flex:1 1 140px }
+      .onboard .actions .btn{ flex:1 1 120px; padding:10px 12px }
       .grid2{ grid-template-columns: 1fr }
       .chat-controls{ flex-wrap:wrap }
       .chat-controls input{ flex:1 1 100% }
       .chat-controls .btn{ flex:1 1 auto }
+    }
+    /* Very small phones: force single-column goals and tighter card */
+    @media (max-width: 480px){
+      .goals{ grid-template-columns: 1fr }
+      .onboard .card{ width:min(88vw, 520px) }
+      .goal{ min-height:38px; padding:8px; font-size:clamp(12px, 3.6vw, 14px) }
+      .onboard .actions .btn{ flex:1 1 120px }
+      #zip{ flex:1 1 140px }
+      #radius{ flex:0 0 76px }
+      #healthy{ flex:0 0 110px }
     }
   </style>
 </head>
