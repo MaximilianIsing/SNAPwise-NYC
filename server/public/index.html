@@ -127,6 +127,15 @@
     .icon-btn{background:transparent; border:none; padding:0 4px; font-size:12px; line-height:1; cursor:pointer; vertical-align:baseline}
     .icon-btn:hover{background:var(--bg)}
     input,select,textarea{padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:var(--white)}
+    /* Overlay scrollbar (visible on iOS and all devices) */
+    .overlay-scroll{ position:relative }
+    .overlay-track{ position:absolute; top:2px; right:2px; bottom:2px; width:4px; background:transparent; pointer-events:none; z-index:3; opacity:.6; transition:opacity .2s ease }
+    .overlay-thumb{ position:absolute; right:0; width:100%; border-radius:999px; background: var(--sb-thumb) }
+    .overlay-track.active{ opacity:1 }
+    body.dark .overlay-thumb{ background: var(--sb-thumb) }
+    /* On iOS, hide native scrollbars where we draw overlays */
+    .hide-native-scrollbar{ scrollbar-width: none }
+    .hide-native-scrollbar::-webkit-scrollbar{ width:0; height:0 }
     /* Custom theme-aware scrollbars for all devices */
     :root{ --sb-thumb: rgba(100,116,139,0.55); --sb-thumb-hover: rgba(100,116,139,0.8); --sb-track: transparent }
     body.dark{ --sb-thumb: rgba(148,163,184,0.65); --sb-thumb-hover: rgba(203,213,225,0.85); --sb-track: transparent }
@@ -635,6 +644,49 @@
     }
     updateMapTheme();
     renderLegend();
+    // Install overlay scrollbars (always visible on iOS)
+    (function(){
+      const SELECTORS = ['#list', '.chat-log', '.tips-scroll', '#tab-tracker', '.panel'];
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      function enhance(el){
+        if (!el || el._overlaySB) return;
+        el.classList.add('overlay-scroll');
+        if (isIOS) el.classList.add('hide-native-scrollbar');
+        const track = document.createElement('div');
+        track.className = 'overlay-track';
+        const thumb = document.createElement('div');
+        thumb.className = 'overlay-thumb';
+        track.appendChild(thumb);
+        el.appendChild(track);
+        let hideTimer = null;
+        function update(){
+          const sh = el.scrollHeight; const ch = el.clientHeight; const st = el.scrollTop;
+          if (sh <= ch + 1){ track.style.display = 'none'; return; } else { track.style.display = 'block'; }
+          const ratio = ch / sh; const thumbH = Math.max(22, Math.round(ch * ratio));
+          const maxThumbTop = ch - thumbH - 4; // 2px inset top/bottom
+          const maxScroll = Math.max(1, sh - ch);
+          const top = Math.round((st / maxScroll) * maxThumbTop);
+          thumb.style.height = thumbH + 'px';
+          thumb.style.top = (2 + top) + 'px';
+        }
+        function show(){
+          track.classList.add('active');
+          if (hideTimer) clearTimeout(hideTimer);
+          hideTimer = setTimeout(() => track.classList.remove('active'), 700);
+        }
+        el.addEventListener('scroll', () => { update(); show(); }, { passive:true });
+        window.addEventListener('resize', update);
+        const ro = new ResizeObserver(update); try{ ro.observe(el); } catch {}
+        el._overlaySB = { update };
+        setTimeout(update, 0);
+      }
+      function init(){ SELECTORS.forEach(sel => document.querySelectorAll(sel).forEach(enhance)); }
+      init();
+      document.addEventListener('click', (e) => {
+        const t = e.target; if (!t) return;
+        if (t.matches('.tabs button')) setTimeout(init, 0);
+      });
+    })();
     // Ensure map resizes correctly on layout/viewport changes
     (function(){
       let resizeTimer = null;
