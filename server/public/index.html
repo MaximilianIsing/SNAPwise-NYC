@@ -247,15 +247,16 @@
       header{ position:sticky; top:0; z-index:1500 }
       header{ flex-wrap:wrap; align-items:center }
       .disclaimer{ display:none }
-      main{ grid-template-columns: 1fr; grid-template-rows: auto 1fr }
-      /* Map fills viewport beneath header; avoid iOS toolbar jumps and ensure map never overlays header */
-      #map{ height: calc(100dvh - var(--header-h, 64px)); margin-top:0 }
+      /* Remove padding so the map touches the edges and top under the header */
+      main{ grid-template-columns: 1fr; grid-template-rows: auto 1fr; padding:0 }
+      /* Map fills the full width and sits flush beneath the header */
+      #map{ height: calc(100dvh - var(--header-h, 64px)); margin-top:0; width:100vw; border:none; border-radius:0; box-shadow:none }
       /* Bottom sheet styling */
-      .panel{ position:fixed; left:0; right:0; bottom:0; margin:0; border-radius:16px 16px 0 0; height: var(--sheet-height, 56vh); max-height:none; overflow:auto; -webkit-overflow-scrolling:touch; z-index:1100; box-shadow:0 -6px 20px rgba(15,23,42,0.12); transition: height .25s ease }
+      .panel{ position:fixed; left:0; right:0; bottom:0; margin:0; border-radius:16px 16px 0 0; height: var(--sheet-height, 40vh); max-height:none; overflow:auto; -webkit-overflow-scrolling:touch; z-index:1100; box-shadow:0 -6px 20px rgba(15,23,42,0.12); transition: height .25s ease }
       
       .tabs{ position:sticky; top:0; background:var(--white); z-index:2 }
       /* Larger, consistent grab handle */
-      .sheet-handle{ position:relative; padding:14px 0; margin:-4px auto 6px auto; touch-action:none; -webkit-user-select:none; user-select:none; cursor:grab }
+      .sheet-handle{ position:relative; padding:3px 0; margin:-4px auto 6px auto; touch-action:none; -webkit-user-select:none; user-select:none; cursor:grab }
       .sheet-handle::after{ content:""; display:block; width:clamp(48px, 18vw, 80px); height:6px; border-radius:999px; background:var(--border); margin:0 auto }
       .sheet-handle:active{ cursor:grabbing }
       /* Ensure tracker tab contents can scroll within the panel */
@@ -285,7 +286,7 @@
       .controls input, .controls select{ padding:6px 8px; font-size:14px }
       .controls button{ padding:7px 10px; font-size:14px }
       .tabs button{ padding:6px; font-size:12px }
-      .legend{ left:auto; right:12px; top:12px; bottom:auto; padding:6px 8px; z-index:1700 }
+      .legend{ left:auto; right:12px; top:12px; bottom:auto; padding:6px 8px; z-index:900 }
       /* Home (onboarding) compact layout for iOS/small screens */  
       .onboard{ align-items:stretch; justify-content:flex-start; padding: max(12px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom)); height:100svh; overflow:auto }
       .onboard .title-hero{ font-size:clamp(36px, 8vw, 48px); margin:8px 0 10px 0 }
@@ -687,16 +688,29 @@
       const panel = document.querySelector('.panel');
       if (!panel) return;
       let startY = 0, startH = 0, dragging = false;
-      const min = 0.03, mid = 0.45, max = 0.80;
+      const min = 0, mid = 0.4, max = 0.80;
       function vh(){ return Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0); }
-      function setHeight(r){ const clamped = Math.max(min, Math.min(max, r)); document.documentElement.style.setProperty('--sheet-height', Math.round(clamped*100) + 'vh'); try{ if (map && map.invalidateSize) setTimeout(() => map.invalidateSize(), 150); } catch {} }
-      setHeight(0.56);
+      function applyLock(clamped){
+        const locked = clamped <= (min + 0.005);
+        panel.classList.toggle('sheet-locked', locked);
+        if (locked){ panel.style.overflow='hidden'; try{ panel.scrollTop = 0; } catch{} }
+        else { panel.style.overflow='auto'; }
+      }
+      function setHeight(r){
+        const clamped = Math.max(min, Math.min(max, r));
+        document.documentElement.style.setProperty('--sheet-height', Math.round(clamped*100) + 'vh');
+        applyLock(clamped);
+        try{ if (map && map.invalidateSize) setTimeout(() => map.invalidateSize(), 150); } catch {}
+      }
+      setHeight(mid);
       const handle = panel.querySelector('.sheet-handle') || panel;
       function onStart(e){ dragging = true; startY = (e.touches? e.touches[0].clientY : e.clientY); startH = panel.getBoundingClientRect().height; document.body.style.userSelect='none'; }
       function onMove(e){ if (!dragging) return; const y = (e.touches? e.touches[0].clientY : e.clientY); const dy = startY - y; const h = Math.max(40, startH + dy); setHeight(h / vh()); }
       function onEnd(){ if (!dragging) return; dragging = false; document.body.style.userSelect=''; const h = panel.getBoundingClientRect().height / vh(); const targets=[min,mid,max]; let best=targets[0],bd=Math.abs(h-targets[0]); for(let i=1;i<targets.length;i++){ const d=Math.abs(h-targets[i]); if(d<bd){bd=d; best=targets[i];}} setHeight(best); }
       handle.addEventListener('mousedown', onStart); window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onEnd);
       handle.addEventListener('touchstart', onStart, { passive:true }); window.addEventListener('touchmove', onMove, { passive:false }); window.addEventListener('touchend', onEnd);
+      // Prevent swiping content when sheet is at min height
+      panel.addEventListener('touchmove', (e) => { if (panel.classList.contains('sheet-locked')) e.preventDefault(); }, { passive:false });
       window.addEventListener('resize', () => setHeight(panel.getBoundingClientRect().height / vh()));
     })();
     // Ensure map resizes correctly on layout/viewport changes
@@ -791,7 +805,19 @@
         el.addEventListener('mouseenter', () => {
           try {
             const targetZoom = Math.max(map.getZoom(), 16);
-            map.flyTo([s.latitude, s.longitude], targetZoom, { duration: 0.4 });
+            // In mobile mid view, bias the center upward so the marker sits in the visible top half
+            const isMobile = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+            let lat = s.latitude, lng = s.longitude;
+            if (isMobile){
+              try{
+                const pt = map.project([lat, lng], targetZoom);
+                // Shift down by ~22% of viewport height (in pixels at current zoom)
+                const shift = (window.innerHeight || 0) * 0.22;
+                const shifted = map.unproject([pt.x, pt.y + shift], targetZoom);
+                lat = shifted.lat; lng = shifted.lng;
+              } catch {}
+            }
+            map.flyTo([lat, lng], targetZoom, { duration: 0.4 });
             if (s && s._marker) highlightMarker(s._marker);
           } catch {}
         });
@@ -947,12 +973,16 @@
       // Respect persisted collapsed state before rendering
       const isCollapsed = (() => { try{ return localStorage.getItem('legend_collapsed') === '1'; } catch { return false; } })();
       try{ root.classList.toggle('collapsed', isCollapsed); } catch {}
+      const isMobileLegend = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width: 900px)').matches : false;
+      const legendTitle = isMobileLegend ? 'Key' : 'Map Key';
+      const legendTypeLabel = isMobileLegend ? 'Type' : 'Store Type';
+      const legendRatingLabel = 'Rating';
       root.innerHTML = `
         <div class="legend-header">
-          <h4 style="margin:0; font-size:12px; font-weight:700; color:var(--muted)">Map Key</h4>
+          <h4 style="margin:0; font-size:12px; font-weight:700; color:var(--muted)">${legendTitle}</h4>
           <div style="display:flex; align-items:center; gap:6px" id="legendModeControls">
-            <button id="legendType" class="${btnTypeCls}" style="padding:4px 8px; font-size:12px">Store Type</button>
-            <button id="legendAI" class="${btnAiCls}" style="padding:4px 8px; font-size:12px">Rating</button>
+            <button id="legendType" class="${btnTypeCls}" style="padding:4px 8px; font-size:12px">${legendTypeLabel}</button>
+            <button id="legendAI" class="${btnAiCls}" style="padding:4px 8px; font-size:12px">${legendRatingLabel}</button>
           </div>
           <button id="legendToggle" class="legend-toggle" title="Toggle map key" aria-label="Toggle map key" style="margin-left:0px;"></button>
         </div>
@@ -1075,7 +1105,9 @@
               if (!listRoot) return;
               // Find the element with matching store id
               const target = listRoot.querySelector(`[data-store-id="${idStr}"]`);
-              if (target && typeof target.scrollIntoView === 'function'){
+              // Avoid auto-scroll when sheet is locked at min height on mobile
+              const sheetLocked = document.querySelector('.panel.sheet-locked');
+              if (target && typeof target.scrollIntoView === 'function' && !sheetLocked){
                 target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 // Toggle persistent selected highlight until a different marker/list item is clicked
                 document.querySelectorAll('#list .store.selected').forEach(el => el.classList.remove('selected'));
