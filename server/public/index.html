@@ -201,8 +201,10 @@
       .disclaimer{ display:none }
       main{ grid-template-columns: 1fr; grid-template-rows: auto auto }
       #map{ height: 60vh }
-      .panel{ height:auto; max-height:40vh }
+      .panel{ height:auto; max-height:40vh; overflow:auto; -webkit-overflow-scrolling:touch }
       .tabs{ position:sticky; top:0; background:var(--white); z-index:2 }
+      /* Ensure tracker tab contents can scroll within the panel */
+      #tab-tracker{ flex:1 1 auto; overflow:auto; -webkit-overflow-scrolling:touch }
       /* Keep settings on first row, right aligned with title; move controls below */
       header .logo{ order:0 }
       header h1{ order:1 }
@@ -227,9 +229,16 @@
       .controls button{ padding:8px 12px }
       .tabs button{ padding:6px; font-size:12px }
       .legend{ left:8px; bottom:8px; padding:6px 8px }
-      .onboard .title-hero{ font-size:42px }
+      /* Home (onboarding) compact layout */
+      .onboard{ align-items:stretch; justify-content:flex-start; padding: max(12px, env(safe-area-inset-top)) 12px 16px }
+      .onboard .title-hero{ font-size:34px; margin:8px 0 12px 0 }
       .onboard .logo-wrap img{ width:80px; height:80px }
-      .onboard .card{ width:min(96vw, 520px); padding:16px }
+      .onboard .card{ width:min(100vw - 24px, 520px); padding:16px; margin:0 auto }
+      .onboard .bg-fruit{ display:none }
+      .goals{ display:grid; grid-template-columns: 1fr 1fr; gap:8px }
+      .goal{ min-height:56px }
+      .onboard .actions{ flex-wrap:wrap }
+      .onboard .actions .btn{ flex:1 1 140px }
       .grid2{ grid-template-columns: 1fr }
       .chat-controls{ flex-wrap:wrap }
       .chat-controls input{ flex:1 1 100% }
