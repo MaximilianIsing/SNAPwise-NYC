@@ -1,0 +1,259 @@
+import express from 'express';
+import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
+import csv from 'csv-parser';
+import { fileURLToPath } from 'url';
+import fetch from 'node-fetch';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(express.json());
+
+// Serve static client
+app.use('/', express.static(path.join(__dirname, 'public')));
+
+// Data in-memory
+/** @type {Array<{
+ * id: string,
+ * name: string,
+ * address: string,
+ * city: string,
+ * borough: string,
+ * zip: string,
+ * county: string,
+ * storeType: string,
+ * isHealthyStore: boolean,
+ * incentiveProgram?: string,
+ * granteeName?: string,
+ * aiScore?: number,
+ * aiReason?: string,
+ * latitude: number,
+ * longitude: number
+ * }>} */
+let stores = [];
+/** @type {Record<string, { latitude: number, longitude: number }>} */
+let zipCentroids = {};
+
+function toZip5(value) {
+  if (value == null) return '';
+  const digits = String(value).replace(/[^0-9]/g, '').slice(0, 5);
+  return digits.padStart(5, '0');
+}
+
+function parseBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  const s = String(value || '').trim().toLowerCase();
+  return s === 'true' || s === '1' || s === 'yes';
+}
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const R = 6371000; // meters
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function loadStoresFromCsv(csvPath) {
+  return new Promise((resolve, reject) => {
+    const results = [];
+    fs.createReadStream(csvPath)
+      .pipe(csv())
+      .on('data', (row) => {
+        const lat = parseFloat(row['Latitude']);
+        const lon = parseFloat(row['Longitude']);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return; // skip
+
+        // Parse AI score if present
+        let aiScore = undefined;
+        const rawScore = row['AI_Health_Score'];
+        if (rawScore !== undefined && rawScore !== null && String(rawScore).trim() !== '') {
+          const n = parseInt(String(rawScore), 10);
+          if (Number.isFinite(n)) {
+            aiScore = Math.max(1, Math.min(10, n));
+          }
+        }
+        const aiReason = String(row['AI_Health_Reason'] || '');
+
+        results.push({
+          id: String(row['Record_ID'] || row['ObjectId'] || ''),
+          name: String(row['Store_Name'] || ''),
+          address: String(row['Store_Street_Address'] || ''),
+          city: String(row['City'] || ''),
+          borough: String(row['County'] || '').toUpperCase(),
+          zip: toZip5(row['Zip_Code']),
+          county: String(row['County'] || ''),
+          storeType: String(row['Store_Type'] || ''),
+          isHealthyStore: parseBoolean(row['Is_Healthy_Store']),
+          incentiveProgram: String(row['Incentive_Program'] || ''),
+          granteeName: String(row['Grantee_Name'] || ''),
+          aiScore,
+          aiReason,
+          latitude: lat,
+          longitude: lon,
+        });
+      })
+      .on('end', () => resolve(results))
+      .on('error', (err) => reject(err));
+  });
+}
+
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, storesLoaded: stores.length });
+});
+
+app.get('/stores', (req, res) => {
+  const lat = parseFloat(String(req.query.lat || '0'));
+  const lng = parseFloat(String(req.query.lng || '0'));
+  const radiusMeters = parseFloat(String(req.query.radius || '1609')); // default ~1 mile
+  const healthyOnly = String(req.query.isHealthy || 'any').toLowerCase(); // 'true'|'false'|'any'
+  const storeType = String(req.query.storeType || '').trim();
+  // Parse limit, support 'unlimited' for no cap
+  const rawLimit = String(req.query.limit || '200');
+  let limit = rawLimit.toLowerCase() === 'unlimited' ? Infinity : parseInt(rawLimit, 10);
+  if (!Number.isFinite(limit) || limit <= 0) limit = 200;
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return res.status(400).json({ error: 'lat and lng are required numbers' });
+  }
+
+  let filtered = stores;
+  if (healthyOnly === 'true') filtered = filtered.filter((s) => s.isHealthyStore);
+  else if (healthyOnly === 'false') filtered = filtered.filter((s) => !s.isHealthyStore);
+
+  if (storeType) {
+    const typeLc = storeType.toLowerCase();
+    filtered = filtered.filter((s) => s.storeType.toLowerCase() === typeLc);
+  }
+
+  let withDistance = filtered
+    .map((s) => ({
+      ...s,
+      distance_m: haversineMeters(lat, lng, s.latitude, s.longitude),
+    }))
+    .filter((s) => s.distance_m <= radiusMeters)
+    .sort((a, b) => a.distance_m - b.distance_m)
+  if (Number.isFinite(limit)) {
+    withDistance = withDistance.slice(0, limit);
+  }
+
+  res.json(withDistance);
+});
+
+// Zip centroid lookup derived from store coordinates
+app.get('/zip/:zip', (req, res) => {
+  const zip = toZip5(req.params.zip);
+  if (!zip) return res.status(400).json({ error: 'Invalid ZIP' });
+  const centroid = zipCentroids[zip];
+  if (!centroid) return res.status(404).json({ error: 'ZIP not found' });
+  res.json(centroid);
+});
+
+// Simple Chat proxy for nutrition advice
+app.post('/chat', async (req, res) => {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'Server missing OPENAI_API_KEY' });
+
+    const { messages, goal, context, responseLength } = req.body || {};
+    const length = String(responseLength || 'default');
+    let lengthHint = '';
+    let maxTokens = 300;
+    let temperature = 0.7;
+    if (length === 'concise'){
+      lengthHint = 'Respond in at most 3 short bullet points (max 15 words each). No intro or outro.';
+      maxTokens = 150;
+      temperature = 0.4;
+    } else if (length === 'comprehensive'){
+      lengthHint = 'Provide comprehensive guidance: 6-10 concise bullet points with examples, then a one-sentence summary.';
+      maxTokens = 700;
+      temperature = 0.8;
+    } else {
+      lengthHint = 'Respond in 5-8 succinct sentences with practical steps and examples.';
+      maxTokens = 350;
+      temperature = 0.7;
+    }
+    const system = {
+      role: 'system',
+      content: `You are a supportive nutrition coach for low-income users using SNAP benefits in NYC. Keep responses practical and culturally sensitive. Offer affordable, store-agnostic suggestions, highlight whole foods and high-protein budget options, and include quick recipes where relevant. If the user asks for medical advice, include a brief disclaimer and suggest consulting a professional. User goal: ${goal || 'unspecified'}. ${lengthHint}`
+    };
+
+    const userContext = context ? [{ role: 'user', content: `Context: ${JSON.stringify(context)}` }] : [];
+    const body = {
+      model: 'gpt-4o-mini',
+      messages: [system, ...userContext, ...(Array.isArray(messages) ? messages : [])].slice(-20),
+      temperature,
+      max_tokens: maxTokens,
+    };
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return res.status(500).json({ error: 'OpenAI error', detail: text });
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Chat proxy failed' });
+  }
+});
+
+async function start() {
+  const candidates = [
+    path.resolve(__dirname, '..', 'NYC Food Stamp Stores.csv'),
+  ];
+  const csvPath = candidates.find((p) => fs.existsSync(p));
+  try {
+    if (!csvPath) {
+      console.error('Could not find NYC stores CSV. Tried:', candidates);
+      process.exit(1);
+    }
+    stores = await loadStoresFromCsv(csvPath);
+    console.log(`Loaded ${stores.length} NYC SNAP stores from ${csvPath}.`);
+    // Build ZIP centroids from store coordinates
+    /** @type {Record<string, { sumLat:number, sumLon:number, count:number }>} */
+    const agg = {};
+    for (const s of stores) {
+      if (!s.zip) continue;
+      if (!agg[s.zip]) agg[s.zip] = { sumLat: 0, sumLon: 0, count: 0 };
+      agg[s.zip].sumLat += s.latitude;
+      agg[s.zip].sumLon += s.longitude;
+      agg[s.zip].count += 1;
+    }
+    zipCentroids = Object.fromEntries(Object.entries(agg).map(([z, v]) => [z, {
+      latitude: v.sumLat / v.count,
+      longitude: v.sumLon / v.count,
+    }]));
+    console.log(`Prepared ${Object.keys(zipCentroids).length} ZIP centroids.`);
+  } catch (err) {
+    console.error('Failed to load stores CSV:', err);
+    process.exit(1);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
+}
+
+start();
+
+

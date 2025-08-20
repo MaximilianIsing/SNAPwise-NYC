@@ -1,0 +1,26 @@
+# Ignore all text files
+*.txt
+
+
+# Node
+node_modules/
+server/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env/config
+.env
+.env.*
+
+# Builds and caches
+dist/
+build/
+.cache/
+coverage/
+
+# OS/IDE
+.DS_Store
+.vscode/
+

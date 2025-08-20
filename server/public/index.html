@@ -1,0 +1,1618 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SNAPwise NYC</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="icon" type="image/png" sizes="64x64" href="media/icons/IconCover64x64.png" />
+  <link rel="icon" type="image/png" href="media/icons/IconCover180x180.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="media/icons/IconCover180x180.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --primary: #5AC68A; --primary-dark:#2F9D64; --accent:#A8E6C6;
+      --bg:#F2FBF6; --ink:#0F172A; --muted:#475569; --border:#E2E8F0; --white:#FFFFFF;
+    }
+    html,body{height:100%; margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink)}
+    .container{display:grid; grid-template-rows:auto 1fr; height:100%}
+    header{display:flex; gap:12px; align-items:center; padding:12px 16px; background:var(--white); border-bottom:1px solid var(--border)}
+    header h1{font-size:20px; margin:0; font-weight:700; color:rgb(166,203,82); font-family:'Fredoka', Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif}
+    header .badge{background:var(--accent); color:var(--ink); padding:4px 8px; border-radius:999px; font-size:12px}
+    header .logo{width:30px; height:30px; border-radius:6px}
+    /* Large icon for onboarding */
+    .onboard .logo-wrap img{width:180px; height:180px; border-radius:24px}
+    .controls{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .controls input,.controls select{padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:var(--white)}
+    .controls button{background:var(--primary); color:#fff; border:none; padding:10px 14px; border-radius:12px; cursor:pointer}
+    .controls button:hover{background:var(--primary-dark)}
+    main{display:grid; grid-template-columns: 1fr 440px; gap:12px; padding:12px;}
+    #map{width:100%; height:calc(100vh - 86px); border:1px solid var(--border); border-radius:16px; box-shadow:0 2px 8px rgba(15,23,42,0.06); position:relative}
+    .panel{background:var(--white); border:1px solid var(--border); border-radius:16px; padding:12px; box-shadow:0 2px 8px rgba(15,23,42,0.06); display:flex; flex-direction:column; height:calc(100vh - 110px); overflow:hidden}
+    .store{border-bottom:1px solid var(--border); padding:10px 4px}
+    .store:last-child{border-bottom:none}
+    .tag{display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); color:var(--muted); white-space:nowrap}
+    .tag.healthy{background:var(--accent); color:var(--ink); border-color:transparent}
+    .tag.snap{background:#F1F5F9; color:var(--ink); border-color:transparent}
+    .tag.rating{color:#fff; border-color:transparent; font-weight:600}
+    .store.flash{background:#FFFBE6}
+    .store.selected{background:#FFFBE6}
+    .hover-tip{position:fixed; display:none; padding:6px 8px; background:rgba(15,23,42,0.92); color:#fff; border-radius:6px; font-size:12px; max-width:280px; z-index:99999; pointer-events:none; line-height:1.3}
+    .muted{color:var(--muted)}
+    .tabs{display:flex; gap:6px; margin-bottom:8px}
+    .tabs button{flex:1; background:#fff; border:1px solid var(--border); padding:8px; border-radius:10px; cursor:pointer}
+    .tabs button.active{background:var(--accent)}
+    .tab{display:none}
+    .tab.active{display:flex; flex-direction:column; min-height:0}
+    #storesHeader{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px}
+    #list{flex:1; overflow:auto}
+    .pager{display:flex; align-items:center; gap:6px}
+    .pager button{background:#fff; border:1px solid var(--border); padding:6px 10px; border-radius:10px; cursor:pointer}
+    .pager select{padding:6px 8px; border:1px solid var(--border); border-radius:10px}
+    .onboard{position:fixed; inset:0; background:rgba(242,251,246,0.65); backdrop-filter:saturate(1.1) blur(4px); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10000; opacity:1; transition:opacity .5s ease}
+    .onboard.fade-out{opacity:0}
+    .onboard .card{position:relative; z-index:1; background:#fff; border:1px solid var(--border); border-radius:16px; padding:20px; width:min(720px, 92vw); box-shadow:0 8px 30px rgba(15,23,42,0.12)}
+    .onboard .title-hero{position:relative; z-index:1; font-size:78.4px; font-weight:900; text-align:center; margin:0 0 16px 0; color:rgb(166,203,82); font-family:'Fredoka', Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif}
+    .onboard .bg-fruit{position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0}
+    .onboard .fruit{position:absolute; top:-140px; opacity:0.25; filter:drop-shadow(0 8px 12px rgba(15,23,42,0.18))}
+    @keyframes fruitFall{0%{transform:translateY(-160px) rotate(0deg); opacity:0} 10%{opacity:.25} 100%{transform:translateY(calc(100vh + 180px)) rotate(540deg); opacity:.25}}
+    .onboard .card h2{margin:0 0 6px 0}
+    .onboard .card p{margin:0 0 12px 0; color:var(--muted)}
+    .onboard .logo-wrap{display:flex; justify-content:center; margin-bottom:10px}
+    .onboard .logo-wrap img{width:120px; height:120px; border-radius:20px}
+    .goals{display:flex; gap:10px; flex-wrap:wrap}
+    .goal{flex:1 1 160px; border:1px solid var(--border); border-radius:12px; padding:12px; cursor:pointer; transition:box-shadow .15s ease, background .15s ease; display:flex; align-items:center; justify-content:center; text-align:center}
+    .goal:hover{background:var(--bg); box-shadow:0 2px 8px rgba(15,23,42,0.06)}
+    .goal.selected{outline:2px solid var(--primary); background:#F3FBF7}
+    .onboard .actions{margin-top:12px; display:flex; gap:8px; justify-content:flex-end}
+    .onboard .field{margin-top:12px}
+    .onboard .field label{display:block; font-weight:600; margin-bottom:6px}
+    .onboard .radio-group{display:flex; gap:12px}
+    .chat{display:flex; flex-direction:column; height:100%}
+    .chat-log{flex:1; overflow:auto; border:1px solid var(--border); border-radius:12px; padding:8px; margin-bottom:8px}
+    #chatLog:empty{display:none}
+    .msg{margin:6px 0;}
+    .msg.user{color:#0b5;}
+    .msg.assistant{color:#333}
+    .chat-log p{margin:0 0 6px}
+    .chat-log ul,.chat-log ol{margin:6px 0 6px 20px}
+    .chat-log code{background:#f7fafc; padding:0 3px; border-radius:4px}
+    .chat-log pre{background:#f7fafc; padding:8px; border-radius:8px; overflow:auto}
+    .chat-controls{display:flex; gap:6px}
+    .chat-controls input{flex:1; padding:10px; border:1px solid var(--border); border-radius:12px}
+    .tips{font-size:14px; line-height:1.5}
+    .tips-scroll{flex:1; overflow:auto}
+    .tip{background:var(--bg); border-left:4px solid var(--primary); padding:8px 10px; margin:8px 0; border-radius:8px}
+    .info-scroll{max-height:160px; overflow:auto; font-size:12px; line-height:1.35}
+    .tip-cat{margin:8px 0; border:1px solid var(--border); border-radius:10px; background:#fff}
+    .tip-cat > summary{cursor:pointer; list-style:none; padding:10px 12px; font-weight:600; display:flex; align-items:center; justify-content:space-between}
+    .tip-cat > summary:hover{background:var(--bg)}
+    .tip-cat[open] > summary{background:var(--bg)}
+    .tip-cat > summary::-webkit-details-marker{display:none}
+    .tip-cat > summary::after{content:'▸'; color:var(--muted); margin-left:8px}
+    .tip-cat[open] > summary::after{content:'▾'}
+    .tip-list{padding:8px 12px 12px 12px}
+    .tracker-section{display:grid; gap:10px}
+    .grid2{display:grid; grid-template-columns: 1fr 1fr; gap:8px}
+    .legend{position:absolute; left:12px; bottom:12px; background:var(--white); border:1px solid var(--border); border-radius:12px; padding:8px 10px; box-shadow:0 2px 8px rgba(15,23,42,0.06); z-index:1000; max-width:260px}
+    .legend h4{margin:0 0 6px 0; font-size:12px; font-weight:700; color:var(--muted)}
+    .legend-section{margin-top:6px}
+    .legend-item{display:flex; align-items:center; gap:8px; margin:4px 0}
+    .swatch{width:12px; height:12px; border-radius:4px; border:1px solid var(--border)}
+    .shape{width:12px; height:12px}
+    .shape.circle{border-radius:50%; border:2px solid #64748B}
+    .shape.diamond{width:10px; height:10px; border:2px solid #64748B; transform:rotate(45deg)}
+    .diamond-shape{display:block; transform:rotate(45deg); border-radius:4px}
+    .btn{background:var(--white); color:var(--ink); border:1px solid var(--border); border-radius:12px; padding:10px 14px; cursor:pointer; transition:background .15s ease, box-shadow .15s ease; text-decoration:none; display:inline-flex; align-items:center; gap:6px}
+    .btn:hover{box-shadow:0 2px 6px rgba(15,23,42,0.08)}
+    .btn-primary{background:var(--primary); color:#fff; border-color:transparent}
+    .btn-primary:hover{background:var(--primary-dark)}
+    .btn-ghost{background:transparent}
+    /* Disabled buttons appear gray */
+    .btn:disabled, .btn[disabled], .btn-primary:disabled, .btn-primary[disabled]{
+      background:#E2E8F0; color:#94A3B8; border-color:#E2E8F0; cursor:not-allowed; box-shadow:none
+    }
+    .btn-icon{padding:8px 10px; border-radius:10px}
+    .icon-btn{background:transparent; border:none; padding:0 4px; font-size:12px; line-height:1; cursor:pointer; vertical-align:baseline}
+    .icon-btn:hover{background:var(--bg)}
+    input,select,textarea{padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:var(--white)}
+    /* Slider label alignment helpers */
+    .range-wrap{position:relative; width:90%; margin:0 auto}
+    .range-wrap input[type=range]{width:100%; display:block; accent-color: var(--primary)}
+    .range-labels{display:none}
+    /* Pointer cursor on interactive controls */
+    #unitSystem, #sortBy, #pageSize, #radius, #healthy{ cursor:pointer }
+    .theme-toggle, .theme-switch, .theme-toggle img{ cursor:pointer }
+    /* Onboarding controls */
+    #boroughSelect{ cursor:pointer }
+    .onboard .radio-group label, .onboard .radio-group input{ cursor:pointer }
+    .tracker-card{background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow:0 2px 8px rgba(15,23,42,0.04)}
+    .section-title{font-weight:600; margin:0 0 8px 0}
+    .disclaimer{margin-left:auto; font-size:12px; color:var(--muted); white-space:normal; text-align:right}
+    .cap-note{font-size:11px; color:var(--muted); margin-top:2px}
+    .settings{position:relative}
+    .settings > summary{list-style:none}
+    .settings > summary::-webkit-details-marker{display:none}
+    .settings-menu{position:absolute; right:0; top:calc(100% + 8px); background:var(--white); border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 24px rgba(15,23,42,0.12); padding:10px; min-width:260px; z-index:1000}
+    .settings-item{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0}
+    .settings-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0}
+    /* Theme switch */
+    .theme-toggle{display:flex; align-items:center; justify-content:center; gap:4px; padding:6px 0}
+    .theme-toggle img{width:16px; height:16px}
+    .theme-switch{position:relative; width:50px; height:28px; background:#E2E8F0; border:1px solid var(--border); border-radius:999px; display:inline-flex; align-items:center; vertical-align:middle; padding:0}
+    .theme-switch input{display:none}
+    .theme-knob{position:absolute; top:3px; left:3px; width:22px; height:22px; background:var(--white); border:1px solid var(--border); border-radius:999px; transition:left .2s ease, background .2s ease}
+    .theme-switch input:checked + .theme-knob{left:25px}
+    body.dark .theme-switch{background:#1E293B; border-color:var(--border)}
+    body.dark .theme-knob{background:#0B1220; border-color:#475569}
+    /* Dark theme variables and overrides */
+    body.dark{ --primary:#5AC68A; --primary-dark:#2F9D64; --accent:#0A3D2A; --bg:#0B1220; --ink:#E5E7EB; --muted:#94A3B8; --border:#334155; --white:#0F172A; }
+    body.dark .hover-tip{ background:rgba(2,6,23,0.92) }
+    body.dark .onboard .card{ background:var(--white) }
+    body.dark .onboard{ background:rgba(11,18,32,0.75) }
+    body.dark .chat-log code, body.dark .chat-log pre{ background:#0F172A; color:var(--ink) }
+    body.dark .msg.assistant{ color:var(--ink) }
+    /* Invert inputs/selects/textareas in dark mode */
+    body.dark input, body.dark select, body.dark textarea{ background:var(--white); color:var(--ink); border-color:var(--border) }
+    body.dark input::placeholder, body.dark textarea::placeholder{ color:var(--muted) }
+    /* Invert tab headers in dark mode */
+    body.dark .tabs button{ background:var(--white); color:var(--ink); border-color:var(--border) }
+    body.dark .tabs button.active{ background:var(--accent); color:var(--ink) }
+    /* Invert pager buttons in dark mode */
+    body.dark .pager button{ background:var(--white); color:var(--ink); border-color:var(--border) }
+    /* Invert tips sections in dark mode */
+    body.dark .tip-cat{ background:var(--white); border-color:var(--border) }
+    body.dark .tip-cat > summary{ color:var(--ink) }
+    body.dark .tip-cat > summary:hover, body.dark .tip-cat[open] > summary{ background:var(--bg) }
+    body.dark .tip-list{ color:var(--ink) }
+    body.dark .tip{ background:var(--bg); color:var(--ink); border-left-color:var(--primary) }
+    /* Onboarding goals readability in dark mode */
+    body.dark .goal{ background:var(--white); color:var(--ink); border-color:var(--border) }
+    body.dark .goal:hover{ background:var(--bg) }
+    body.dark .goal.selected{ outline:2px solid var(--primary); background:rgba(90,198,138,0.14); color:var(--ink) }
+    /* Store list selected/flash highlight in dark mode */
+    body.dark .store.selected{ background:rgba(90,198,138,0.14) }
+    body.dark .store.flash{ background:rgba(90,198,138,0.14) }
+    /* Improve SNAP tag readability in dark mode */
+    body.dark .tag.snap{ background:#1E293B; color:var(--ink); border-color:transparent }
+    /* Invert Leaflet popups in dark mode */
+    body.dark .leaflet-popup-content-wrapper{ background:var(--white); color:var(--ink); border:1px solid var(--border) }
+    body.dark .leaflet-popup-tip{ background:var(--white); border:1px solid var(--border) }
+    body.dark .leaflet-popup-close-button{ color:var(--ink) }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="media/icons/IconCover180x180.png" alt="App icon" class="logo"/>
+      <h1>SNAPwise NYC</h1>
+      <div class="controls">
+        <input id="zip" placeholder="Enter ZIP (e.g., 10452)"/>
+        <select id="radius">
+          <option value="804" selected>0.5 mi</option>
+          <option value="1609">1 mi</option>
+          <option value="3219">2 mi</option>
+          <option value="8046">5 mi</option>
+        </select>
+        <select id="healthy">
+          <option value="any">Any</option>
+          <option value="true">Known Healthy Only</option>
+          <option value="false">Exclude Known Healthy</option>
+        </select>
+        <button id="searchBtn" class="btn btn-primary">Search</button>
+        <button id="locBtn" class="btn btn-ghost">Use my location</button>
+      </div>
+      <div class="disclaimer">*Please take all nutritional and dietary advice with caution. Times shown are at walking pace but might be inaccurate.</div>
+      <details class="settings" id="settings">
+        <summary class="btn btn-primary btn-icon" title="Settings"><img src="media/Settings.png" alt="Settings" style="width:18px; height:18px"/></summary>
+        <div class="settings-menu">
+          <div class="muted" style="font-weight:600; margin-bottom:6px; text-align:center">Settings</div>
+          <div class="settings-row">
+            <div class="theme-toggle" style="flex:0 0 auto; justify-content:flex-start">
+              <img src="media/sun.png" alt="Light"/>
+              <label class="theme-switch" for="toggleDark" style="margin:0 4px">
+                <input id="toggleDark" type="checkbox" />
+                <span class="theme-knob"></span>
+              </label>
+              <img src="media/moon.png" alt="Dark"/>
+            </div>
+            <label class="units-select" style="display:flex; align-items:center; gap:6px; white-space:nowrap">
+              <span class="muted" style="font-size:12px">Units</span>
+              <select id="unitSystem">
+                <option value="mi">mi</option>
+                <option value="km">km</option>
+              </select>
+            </label>
+          </div>
+          <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:4px">
+            <div class="muted" style="font-size:12px; text-align:center">Coach Response Length</div>
+            <div class="btn-group" id="respLenGroup" role="group" aria-label="Coach response length" style="display:flex; width:90%; margin:0 auto; border:1px solid var(--border); border-radius:12px; overflow:hidden; justify-content:center">
+              <button type="button" data-val="concise" class="btn" style="flex:1 1 0; border:none; border-right:1px solid var(--border); border-radius:0">Concise</button>
+              <button type="button" data-val="default" class="btn" style="flex:1 1 0; border:none; border-right:1px solid var(--border); border-radius:0">Default</button>
+              <button type="button" data-val="comprehensive" class="btn" style="flex:1 1 0; border:none; border-radius:0">Extensize</button>
+            </div>
+          </div>
+          <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:6px">
+            <div class="muted" style="font-size:12px; text-align:center">Max Store Results</div>
+            <div style="display:flex; justify-content:center">
+              <select id="maxResults" style="min-width:140px">
+                <option value="100">100</option>
+                <option value="200">200</option>
+                <option value="500">500</option>
+                <option value="Unlimited">Unlimited</option>
+              </select>
+            </div>
+            <div style="text-align:center; font-size:10px; font-style:italic; color:var(--muted); margin-top:2px">*Unlimited is experimental and not recommended</div>
+          </div>
+          <button class="btn" id="returnHome" style="width:100%; justify-content:center; margin-top:12px">Return to Home Screen</button>
+        </div>
+      </details>
+    </header>
+    <main>
+      <div id="map">
+        <div class="legend" id="legend">
+          <!-- dynamic legend rendered by JS -->
+        </div>
+      </div>
+      <aside class="panel">
+        <div class="tabs">
+          <button data-tab="stores" class="active">Stores</button>
+          <button data-tab="coach">Coach</button>
+          <button data-tab="tracker">Tracker</button>
+          <button data-tab="tips">Tips</button>
+        </div>
+        <div id="tab-stores" class="tab active">
+          <div id="storesHeader">
+            <div class="muted" id="storesSummary">0 results</div>
+            <div class="pager">
+              <select id="sortBy" title="Sort by">
+                <option value="distance" selected>Distance</option>
+                <option value="rating">Rating</option>
+              </select>
+              <button id="prevPage" class="btn">Prev</button>
+              <span id="pageInfo" class="muted">1 / 1</span>
+              <button id="nextPage" class="btn">Next</button>
+              <select id="pageSize">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+          </div>
+          <details style="margin:4px 0 8px 0">
+            <summary class="muted" style="cursor:pointer">What is a “Known Healthy” store?</summary>
+            <div class="tip info-scroll" style="margin-top:6px">
+              <strong>Bodegas & Grocery Stores Receiving Recognition from Borough President's Office</strong><br/>
+              Each year, bodegas and grocery stores located in and around Action Center catchment areas participate in the Shop Healthy NYC program's Retail Challenge to increase (1) availability of healthier foods, such as low-sodium canned goods, healthier snacks and deli options; (2) promotion of healthier foods by posting Shop Healthy marketing materials for healthier foods and removing unhealthy advertising from the front door; and (3) visibility of healthier foods by placing them in more prominent locations, such as placing produce at the checkout counter or near the front entrance of the store, and water and other low-calorie drinks at eye-level. Stores that have implemented all of the program’s criteria at the conclusion of the Retail Challenge, and maintain them for at least one month, receive a recognition award from the Borough President's Office to acknowledge their efforts and dedication to make the healthy choice, the easier choice for their communities.<br/><br/>
+              This is a manually compiled list of stores, which is based on data collected through implementation checklists; these are forms completed by Shop Healthy staff as part of store observations that track whether each criteria has been met. At this time, the program does not have processes in place to ensure that stores maintain the changes past one-month.
+            </div>
+          </details>
+        <div id="list"></div>
+        </div>
+        <div id="tab-coach" class="tab">
+          <div class="chat">
+            <div id="chatLog" class="chat-log"></div>
+            <div class="chat-controls">
+              <input id="chatInput" placeholder="Ask Health Coach..."/>
+              <button id="chatSend" class="btn btn-primary">Send</button>
+              <button id="chatClear" class="btn btn-ghost" title="Clear chat">Clear chat</button>
+            </div>
+          </div>
+        </div>
+        <div id="tab-tracker" class="tab">
+          <div class="tracker-section">
+            <div class="tracker-card">
+              <div class="section-title">Daily targets</div>
+              <div class="grid2">
+                <div>
+                  <label class="muted">Calories</label>
+                  <input id="calTarget" type="number" min="800" max="4000" placeholder="e.g., 1800" />
+                </div>
+                <div>
+                  <label class="muted">Protein (g)</label>
+                  <input id="proteinTarget" type="number" min="20" max="300" placeholder="e.g., 100" />
+                </div>
+              </div>
+            </div>
+
+            <div class="tracker-card">
+              <div class="section-title">Log a meal</div>
+              <div class="grid2">
+                <input id="mealName" placeholder="e.g., Tuna wrap"/>
+                <input id="mealCals" type="number" placeholder="Calories"/>
+              </div>
+              <div class="grid2" style="margin-top:6px">
+                <input id="mealProtein" type="number" placeholder="Protein (g)"/>
+                <button id="addMeal" class="btn btn-primary">Add meal</button>
+              </div>
+            </div>
+
+            <div class="tracker-card">
+              <div class="section-title">Today</div>
+              <div id="todayTotals" style="margin-bottom:6px"></div>
+              <div id="mealList"></div>
+              <div style="display:flex; gap:8px; justify-content:space-between; margin-top:8px">
+                <button id="resetLog" class="btn btn-ghost">Reset log</button>
+                <button id="reviewDiet" class="btn"><img id="reviewDietIcon" src="media/Magnifying Glass Light.png" alt="Search" style="width:14px; height:14px; vertical-align:middle; margin-right:6px"/>Review Diet</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="tab-tips" class="tab">
+          <div class="tips tips-scroll">
+            <details class="tip-cat">
+              <summary>Weight Loss</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Protein first:</strong> Aim for a protein source every meal (eggs, tuna, beans, yogurt) to stay full longer.</div>
+                <div class="tip"><strong>Volume foods:</strong> Load half the plate with high‑fiber, low‑cal veggies (frozen is great and cheap).</div>
+                <div class="tip"><strong>Drink swap:</strong> Replace sugary drinks with water or seltzer; save 150–300 calories per bottle.</div>
+                <div class="tip"><strong>Smart snacks:</strong> Keep fruit, nuts (small handful), or yogurt; avoid chips near the checkout trap.</div>
+                <div class="tip"><strong>Plate timing:</strong> Eat slow; a 10–15 minute pause helps your brain register fullness.</div>
+                <div class="tip"><strong>Simple breakfasts:</strong> Oats + peanut butter + banana, or eggs + beans + salsa.</div>
+              </div>
+            </details>
+            <details class="tip-cat">
+              <summary>Affordable Proteins</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Eggs:</strong> Versatile, cheap, 6–7g protein each. Boil a dozen for grab‑and‑go.</div>
+                <div class="tip"><strong>Canned tuna/chicken:</strong> $1–2 a can; mix with beans or greens.</div>
+                <div class="tip"><strong>Beans & lentils:</strong> Dry or canned; fiber + protein for pennies per serving.</div>
+                <div class="tip"><strong>Greek yogurt:</strong> Large tubs are best value; add fruit/oats for snacks.</div>
+                <div class="tip"><strong>Peanut butter:</strong> 2 tbsp ≈ 7–8g protein; pair with oats, toast, apples.</div>
+              </div>
+            </details>
+
+            <details class="tip-cat">
+              <summary>Quick Meals (5–10 minutes)</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Tuna wrap:</strong> Tuna + light mayo + salsa + lettuce in tortilla.</div>
+                <div class="tip"><strong>Egg stir‑up:</strong> Scramble eggs with frozen veg; finish with soy or salsa.</div>
+                <div class="tip"><strong>Bean bowl:</strong> Rice + black beans + corn + salsa + yogurt.</div>
+                <div class="tip"><strong>Microwave oats:</strong> Oats + water + PB + banana in 2–3 minutes.</div>
+                <div class="tip"><strong>Yogurt parfait:</strong> Greek yogurt + fruit + oats; add cinnamon.</div>
+              </div>
+            </details>
+
+            <details class="tip-cat">
+              <summary>Healthy Shopping</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Shop a list:</strong> Write 5–10 items and stick to them.</div>
+                <div class="tip"><strong>Unit price:</strong> Compare price per oz/lb; bigger isn’t always cheaper.</div>
+                <div class="tip"><strong>Frozen produce:</strong> Often cheaper, less waste, same nutrients.</div>
+                <div class="tip"><strong>Store brands:</strong> Choose generic for rice, pasta, milk, spices.</div>
+                <div class="tip"><strong>Seasonal buys:</strong> In‑season fruit/veg are cheaper and taste better.</div>
+              </div>
+            </details>
+
+            <details class="tip-cat">
+              <summary>Meal Prep & Leftovers</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Cook once, eat twice:</strong> Double rice/beans/chicken for the week.</div>
+                <div class="tip"><strong>Base + toppings:</strong> Prep rice and rotate proteins/sauces daily.</div>
+                <div class="tip"><strong>Freeze extras:</strong> Soup, chili, cooked meat freeze well; label dates.</div>
+                <div class="tip"><strong>Leftover refresh:</strong> Add eggs/tortilla to transform last night’s meal.</div>
+                <div class="tip"><strong>Snack boxes:</strong> Portion nuts, fruit, yogurt for grab‑and‑go.</div>
+              </div>
+            </details>
+
+            <details class="tip-cat">
+              <summary>Diabetes‑Friendly</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Plate method:</strong> Half veg, quarter protein, quarter starch.</div>
+                <div class="tip"><strong>Fiber first:</strong> Beans, oats, apples help slow sugar spikes.</div>
+                <div class="tip"><strong>Smart drinks:</strong> Water, seltzer, unsweet tea; avoid sugary beverages.</div>
+                <div class="tip"><strong>Pair carbs:</strong> Apples + PB, crackers + tuna, yogurt + oats.</div>
+                <div class="tip"><strong>Portions:</strong> Measure rice/pasta at first to learn serving sizes.</div>
+              </div>
+            </details>
+
+            <details class="tip-cat">
+              <summary>Low‑Sodium Swaps</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Rinse beans:</strong> Cuts sodium by ~30–40%.</div>
+                <div class="tip"><strong>Low‑sodium picks:</strong> Broth, beans, canned veg when possible.</div>
+                <div class="tip"><strong>Flavor without salt:</strong> Garlic, onion, chili, vinegar, lemon, herbs.</div>
+                <div class="tip"><strong>Watch sauces:</strong> Soy, BBQ, dressings add up; use lightly.</div>
+                <div class="tip"><strong>Frozen veg:</strong> Usually no salt added; quick and healthy.</div>
+              </div>
+            </details>
+
+            <details class="tip-cat">
+              <summary>Vegetarian on a Budget</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Protein trio:</strong> Beans, lentils, eggs cover protein cheaply.</div>
+                <div class="tip"><strong>Meatless chili:</strong> Beans + tomatoes + corn + spices.</div>
+                <div class="tip"><strong>Tofu basics:</strong> Pan‑sear with soy/garlic; add frozen veg and rice.</div>
+                <div class="tip"><strong>PB oatmeal:</strong> Protein + fiber breakfast for cents/serving.</div>
+                <div class="tip"><strong>Frozen mixes:</strong> Pre‑cut stir‑fry blends save time and money.</div>
+              </div>
+            </details>
+
+            <details class="tip-cat">
+              <summary>Microwave & No‑Cook</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Mug omelet:</strong> Eggs + veg + cheese; 90 seconds.</div>
+                <div class="tip"><strong>Bean quesadilla:</strong> Tortilla + beans + cheese; pan or microwave.</div>
+                <div class="tip"><strong>No‑cook wraps:</strong> Hummus + veg + leftover meat.</div>
+                <div class="tip"><strong>Overnight oats:</strong> Oats + milk + PB + banana in a jar.</div>
+                <div class="tip"><strong>Ready rice + tuna:</strong> Microwave rice, mix with tuna and salsa.</div>
+              </div>
+            </details>
+
+            <details class="tip-cat">
+              <summary>Kids & Family</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Build‑your‑own:</strong> Taco bowls with rice, beans, cheese, salsa, veg.</div>
+                <div class="tip"><strong>Snack swaps:</strong> Fruit + yogurt instead of cookies; popcorn over chips.</div>
+                <div class="tip"><strong>Helper jobs:</strong> Let kids wash veg, stir, or portion snacks.</div>
+                <div class="tip"><strong>Color game:</strong> Aim for 3 colors on the plate each meal.</div>
+                <div class="tip"><strong>Water first:</strong> Drink water before juice or soda.</div>
+              </div>
+            </details>
+
+            <details class="tip-cat">
+              <summary>Food Safety & Storage</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>FIFO:</strong> First in, first out—use older items first.</div>
+                <div class="tip"><strong>Label leftovers:</strong> Date containers; 3–4 days in the fridge.</div>
+                <div class="tip"><strong>Safe thaw:</strong> Fridge or cold water bath, not the counter.</div>
+                <div class="tip"><strong>Cool fast:</strong> Store hot foods in shallow containers.</div>
+                <div class="tip"><strong>Reheat hot:</strong> Warm leftovers to steaming (≥165°F/74°C).</div>
+              </div>
+            </details>
+
+            <details class="tip-cat">
+              <summary>SNAP & Pantry Tips</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Staples first:</strong> Beans, rice, oats, eggs, frozen veg stretch budgets.</div>
+                <div class="tip"><strong>Pantry nights:</strong> Plan 1–2 “pantry meals” weekly to use what you have.</div>
+                <div class="tip"><strong>Bulk smart:</strong> Only buy bulk if you can store it and will use it.</div>
+                <div class="tip"><strong>Local pantries:</strong> Ask for produce/meat days; arrive early.</div>
+                <div class="tip"><strong>Double‑duty foods:</strong> Buy items that work across breakfast/lunch/dinner.</div>
+              </div>
+            </details>
+            <details class="tip-cat">
+              <summary>Spending Less on Food</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Unit price:</strong> Compare price per ounce; bigger isn’t always cheaper on brand-name bundles.</div>
+                <div class="tip"><strong>Staples:</strong> Oats, rice, beans, eggs, frozen veg, canned fish stretch meals for less.</div>
+                <div class="tip"><strong>Plan 3 meals:</strong> Rotate 2–3 cheap, filling meals each week to cut impulse buys.</div>
+                <div class="tip"><strong>Store brands:</strong> Buy generic for basics (rice, pasta, milk, spices) with similar quality.</div>
+                <div class="tip"><strong>Leftovers plan:</strong> Cook once, eat twice. Make extra rice/beans to reuse all week.</div>
+                <div class="tip"><strong>Freezer friend:</strong> Freeze bread, meats, and leftovers to avoid waste.</div>
+              </div>
+            </details>
+            <details class="tip-cat">
+              <summary>Manipulative Sales Tactics</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>Bundle trap:</strong> Value meals add sides/soda you didn’t want. Order items separately.</div>
+                <div class="tip"><strong>Eye-level tricks:</strong> High‑calorie snacks live at eye level. Scan lower shelves for better options.</div>
+                <div class="tip"><strong>BOGO bait:</strong> “Buy one get one” doubles spend and calories; only buy if you needed one.</div>
+                <div class="tip"><strong>Limited time:</strong> “Today only” signs push urgency. Pause and check your list first.</div>
+                <div class="tip"><strong>Checkout gauntlet:</strong> Avoid the candy rack by using self‑checkout when possible.</div>
+                <div class="tip"><strong>Fancy packaging:</strong> “Protein,” “keto,” or “natural” labels don’t guarantee healthy.</div>
+              </div>
+            </details>
+            <details class="tip-cat">
+              <summary>Common Misconceptions</summary>
+              <div class="tip-list">
+                <div class="tip"><strong>“Healthy is expensive”:</strong> Frozen veg, eggs, beans, and oats are low‑cost nutrient staples.</div>
+                <div class="tip"><strong>“Salads are always healthy”:</strong> Dressings/toppings can double calories; choose light dressing, protein.</div>
+                <div class="tip"><strong>“Carbs are bad”:</strong> Whole grains and beans help fullness and budget; watch portions, not all carbs.</div>
+                <div class="tip"><strong>“Snacking ruins progress”:</strong> Planned high‑protein snacks can prevent overeating later.</div>
+                <div class="tip"><strong>“All fast food is bad”:</strong> Grilled chicken, small chili, baked potato, or side salads can work.</div>
+                <div class="tip"><strong>“You need supplements”:</strong> Food first; only add vitamins if a clinician recommends.</div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+  <script>
+    const API_BASE = (location.protocol === 'file:') ? 'http://localhost:3000' : '';
+    const DEFAULT_ZOOM = 16;
+    const map = L.map('map').setView([40.758, -73.985], DEFAULT_ZOOM);
+    // Light/Dark base layers
+    const tilesLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    });
+    const tilesDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    });
+    let currentBaseLayer = null;
+    function updateMapTheme(){
+      try{
+        const useDark = document.body.classList.contains('dark');
+        const next = useDark ? tilesDark : tilesLight;
+        if (currentBaseLayer && currentBaseLayer !== next){ map.removeLayer(currentBaseLayer); }
+        if (!map.hasLayer(next)) next.addTo(map);
+        currentBaseLayer = next;
+      } catch {}
+    }
+    updateMapTheme();
+    renderLegend();
+
+    const markers = [];
+    let currentHighlightedMarker = null;
+    let userGoal = localStorage.getItem('goal') || '';
+    let chatMessages = [];
+    let currentLat = 40.758;
+    let currentLng = -73.985;
+
+    function clearMarkers(){ markers.forEach(m => map.removeLayer(m)); markers.length = 0; }
+
+    let fullResults = [];
+    let currentPage = 1;
+    let pageSize = 50;
+    function renderList(items){
+      const list = document.getElementById('list');
+      const summary = document.getElementById('storesSummary');
+      const pageInfo = document.getElementById('pageInfo');
+      list.innerHTML = '';
+      fullResults = Array.isArray(items) ? items : [];
+      // Apply sorting before pagination
+      const sortSel = document.getElementById('sortBy');
+      const sortBy = sortSel ? sortSel.value : 'distance';
+      fullResults = fullResults.slice().sort((a, b) => {
+        if (sortBy === 'rating'){
+          const ar = (typeof a.aiScore === 'number' && isFinite(a.aiScore)) ? a.aiScore : -Infinity;
+          const br = (typeof b.aiScore === 'number' && isFinite(b.aiScore)) ? b.aiScore : -Infinity;
+          if (br !== ar) return br - ar; // highest first
+          return (a.distance_m || Infinity) - (b.distance_m || Infinity);
+        }
+        // default distance
+        return (a.distance_m || Infinity) - (b.distance_m || Infinity);
+      });
+      const total = fullResults.length;
+      if (!Array.isArray(items) || items.length === 0){
+        const radius = parseInt(document.getElementById('radius').value, 10);
+        const miles = (radius/1609).toFixed(1);
+        const empty = document.createElement('div');
+        empty.className = 'muted';
+        empty.style.padding = '8px 4px';
+        empty.textContent = `No stores found within ${miles} miles. Try increasing radius or using your location.`;
+        list.appendChild(empty);
+        summary.textContent = '0 results';
+        pageInfo.textContent = '0 / 0';
+        return;
+      }
+      const start = (currentPage - 1) * pageSize;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+      const pageItems = fullResults.slice((currentPage - 1) * pageSize, (currentPage - 1) * pageSize + pageSize);
+      const maxSel = (localStorage.getItem('max_results') || '200');
+      const maxCap = (maxSel === 'Unlimited') ? null : parseInt(maxSel, 10) || 200;
+      const capNote = (maxCap && total === maxCap) ? `<div class="cap-note">*(${maxCap} max)</div>` : '';
+      summary.innerHTML = `${total} result${total === 1 ? '' : 's'}${capNote}`;
+      pageInfo.textContent = `${currentPage} / ${totalPages}`;
+      pageItems.forEach(s => {
+        const el = document.createElement('div');
+        el.className = 'store';
+        el.dataset.storeId = String(s.id || '');
+        const score = (typeof s.aiScore === 'number' && isFinite(s.aiScore)) ? Math.max(1, Math.min(10, Math.round(s.aiScore))) : null;
+        const ratingColor = score ? scoreToColor(score) : null;
+        const reasonTitle = (typeof s.aiReason === 'string' && s.aiReason.trim()) ? escapeAttr(s.aiReason) : 'No reason provided';
+        el.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div>
+              <div style="font-weight:600;">${s.name}</div>
+              <div class="muted">${s.address}, ${s.city} ${s.zip}</div>
+              <div class="muted">${s.storeType} · ${formatDistance(s.distance_m)} · ~${formatWalkTime(s.distance_m)}</div>
+              ${s.incentiveProgram ? `<div class="tag">${s.incentiveProgram}</div>` : ''}
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+              <div style="display:flex; gap:6px; align-items:center;">
+                ${score ? `<span class=\"tag rating\" data-reason=\"${reasonTitle}\" style=\"background:${ratingColor}\">${score}/10</span>` : ''}
+                <span class="tag ${s.isHealthyStore ? 'healthy' : 'snap'}">${s.isHealthyStore ? 'SNAP-Healthy' : 'SNAP'}</span>
+              </div>
+              <a class="btn" href="https://www.google.com/maps/dir/?api=1&origin=${currentLat},${currentLng}&destination=${s.latitude},${s.longitude}" target="_blank" rel="noopener">Route</a>
+            </div>
+          </div>
+        `;
+        el.addEventListener('mouseenter', () => {
+          try {
+            const targetZoom = Math.max(map.getZoom(), 16);
+            map.flyTo([s.latitude, s.longitude], targetZoom, { duration: 0.4 });
+            if (s && s._marker) highlightMarker(s._marker);
+          } catch {}
+        });
+        el.addEventListener('mouseleave', () => { try { resetCurrentHighlight(); } catch {} });
+        el.addEventListener('click', () => {
+          // Persist highlight on list item when clicked
+          document.querySelectorAll('#list .store.selected').forEach(node => node.classList.remove('selected'));
+          el.classList.add('selected');
+          // Also open the marker popup for consistency
+          try { if (s && s._marker) s._marker.openPopup(); } catch {}
+        });
+        list.appendChild(el);
+      });
+    }
+    function getTypeColor(storeType){
+      const t = String(storeType || '').trim().toLowerCase();
+      const map = {
+        'grocery store': '#16A34A',
+        'convenience store': '#F59E0B',
+        'restaurant meals program': '#EF4444',
+        'super store': '#3B82F6',
+        'other': '#9CA3AF',
+      };
+      return map[t] || '#9CA3AF';
+    }
+
+    function getMarkerColorForStore(store){
+      try{
+        const mode = localStorage.getItem('legend_mode') || 'type';
+        if (mode === 'ai'){
+          const score = (typeof store.aiScore === 'number' && isFinite(store.aiScore)) ? Math.max(1, Math.min(10, Math.round(store.aiScore))) : null;
+          if (score){ return scoreToColor(score); }
+        }
+      } catch {}
+      return getTypeColor(store.storeType);
+    }
+
+    function recolorMarkers(){
+      try{
+        if (!Array.isArray(fullResults)) return;
+        fullResults.forEach(s => {
+          const m = s && s._marker;
+          if (!m) return;
+          const color = getMarkerColorForStore(s);
+          m.__color = color;
+          const base = (typeof m.__baseSize === 'number') ? m.__baseSize : (m.__type === 'circle' ? 22 : 24);
+          if (m.__type === 'circle'){
+            m.setIcon(createCircleIcon(color, base));
+          } else if (m.__type === 'diamond'){
+            m.setIcon(createDiamondIcon(color, base));
+          }
+        });
+      } catch {}
+    }
+
+    function createDiamondIcon(color, size){
+      const html = `<span class="diamond-shape" style="display:inline-block;width:${size}px;height:${size}px;background:${color};border:2px solid ${color};"></span>`;
+      return L.divIcon({ className: '', html, iconSize: [size, size], iconAnchor: [size/2, size/2] });
+    }
+
+    function createCircleIcon(color, size){
+      const html = `<span style="display:inline-block;width:${size}px;height:${size}px;background:${color};border:2px solid ${color};border-radius:50%;opacity:0.9;"></span>`;
+      return L.divIcon({ className: '', html, iconSize: [size, size], iconAnchor: [size/2, size/2] });
+    }
+
+    function createDiamondMarker(lat, lng, color){
+      // Use a DivIcon to scale similarly to circle markers at various zoom levels
+      const size = 24; // slightly larger to improve visibility
+      const icon = createDiamondIcon(color, size);
+      const m = L.marker([lat, lng], { icon });
+      m.__type = 'diamond';
+      m.__baseSize = size;
+      m.__color = color;
+      return m;
+    }
+
+    function formatWalkTime(meters){
+      if (!Number.isFinite(meters)) return '';
+      const miles = meters / 1609.344;
+      const minutes = Math.round((miles / 2.2) * 60); // ~2.2 mph walking pace
+      if (minutes < 1) return '<1 min';
+      if (minutes < 60) return `${minutes} min`;
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return m ? `${h} hr ${m} min` : `${h} hr`;
+    }
+
+    function formatDistance(meters){
+      const units = (localStorage.getItem('units') || 'mi');
+      if (units === 'km'){
+        const km = meters / 1000;
+        return `${km.toFixed(2)} km`;
+      }
+      const mi = meters / 1609.344;
+      return `${mi.toFixed(2)} mi`;
+    }
+
+    function formatRadiusLabel(meters){
+      const units = (localStorage.getItem('units') || 'mi');
+      if (units === 'km'){
+        const km = meters / 1000;
+        const val = Math.round(km * 10) / 10; // 1 decimal
+        return `${val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)} km`;
+      }
+      const mi = meters / 1609.344;
+      const val = Math.round(mi * 10) / 10; // 1 decimal
+      return `${val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)} mi`;
+    }
+
+    function updateRadiusLabels(){
+      try{
+        const sel = document.getElementById('radius');
+        if (!sel) return;
+        Array.from(sel.options).forEach(opt => {
+          const m = parseFloat(opt.value || '0');
+          if (!Number.isFinite(m)) return;
+          opt.textContent = formatRadiusLabel(m);
+        });
+      } catch {}
+    }
+
+    // Map a 1-10 score to a red→yellow→green color
+    function scoreToColor(score){
+      const s = Math.max(1, Math.min(10, Number(score) || 1));
+      const t = (s - 1) / 9; // 0..1
+      // interpolate red (255,59,48) → yellow (255,204,0) → green (16,185,129)
+      let r, g, b;
+      if (t < 0.5){
+        const u = t / 0.5; // 0..1
+        r = 255;
+        g = Math.round(59 + (204 - 59) * u);
+        b = Math.round(48 + (0 - 48) * u);
+      } else {
+        const u = (t - 0.5) / 0.5; // 0..1
+        r = Math.round(255 + (16 - 255) * u);
+        g = Math.round(204 + (185 - 204) * u);
+        b = Math.round(0 + (129 - 0) * u);
+      }
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // Legend rendering with toggle (store type vs AI rating)
+    function renderLegend(){
+      const root = document.getElementById('legend');
+      if (!root) return;
+      let mode = localStorage.getItem('legend_mode');
+      if (mode !== 'type' && mode !== 'ai'){
+        mode = 'type';
+        try{ localStorage.setItem('legend_mode','type'); } catch {}
+      }
+      const btnTypeCls = mode === 'type' ? 'btn btn-primary' : 'btn';
+      const btnAiCls = mode === 'ai' ? 'btn btn-primary' : 'btn';
+      root.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px">
+          <h4 style="margin:0; font-size:12px; font-weight:700; color:var(--muted)">Map Key</h4>
+          <div style="display:flex; gap:6px">
+            <button id="legendType" class="${btnTypeCls}" style="padding:4px 8px; font-size:12px">Store Type</button>
+            <button id="legendAI" class="${btnAiCls}" style="padding:4px 8px; font-size:12px">Rating</button>
+          </div>
+        </div>
+        <div id="legendBody"></div>
+      `;
+      const body = root.querySelector('#legendBody');
+      if (!body) return;
+      if (mode === 'ai'){
+        body.innerHTML = `
+          <div class="legend-section">
+            <div class="legend-item"><span class="swatch" style="background:${scoreToColor(9)}"></span> 9–10 (Excellent)</div>
+            <div class="legend-item"><span class="swatch" style="background:${scoreToColor(7)}"></span> 7–8 (Good)</div>
+            <div class="legend-item"><span class="swatch" style="background:${scoreToColor(5)}"></span> 5–6 (Fair)</div>
+            <div class="legend-item"><span class="swatch" style="background:${scoreToColor(3)}"></span> 3–4 (Limited)</div>
+            <div class="legend-item"><span class="swatch" style="background:${scoreToColor(1)}"></span> 1–2 (Poor)</div>
+          </div>
+          <div class="legend-section">
+            <div class="legend-item"><span class="shape circle"></span> Not Known Healthy</div>
+            <div class="legend-item"><span class="shape diamond"></span> Known Healthy</div>
+            <div class="legend-item"><img alt="my loc" style="width:14px; height:22px" src="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png"/> My location</div>
+          </div>
+        `;
+      } else {
+        body.innerHTML = `
+          <div class="legend-section">
+            <div class="legend-item"><span class="swatch" style="background:#16A34A"></span> Grocery Store</div>
+            <div class="legend-item"><span class="swatch" style="background:#F59E0B"></span> Convenience Store</div>
+            <div class="legend-item"><span class="swatch" style="background:#EF4444"></span> Restaurant Meals Program</div>
+            <div class="legend-item"><span class="swatch" style="background:#3B82F6"></span> Super Store</div>
+            <div class="legend-item"><span class="swatch" style="background:#9CA3AF"></span> Other</div>
+          </div>
+          <div class="legend-section">
+            <div class="legend-item"><span class="shape circle"></span> Not Known Healthy</div>
+            <div class="legend-item"><span class="shape diamond"></span> Known Healthy</div>
+            <div class="legend-item"><img alt="my loc" style="width:14px; height:22px" src="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png"/> My location</div>
+          </div>
+        `;
+      }
+      const btnType = root.querySelector('#legendType');
+      const btnAI = root.querySelector('#legendAI');
+      if (btnType) btnType.addEventListener('click', () => { localStorage.setItem('legend_mode','type'); renderLegend(); recolorMarkers(); });
+      if (btnAI) btnAI.addEventListener('click', () => { localStorage.setItem('legend_mode','ai'); renderLegend(); recolorMarkers(); });
+    }
+
+    // Escape text for safe use in HTML attribute context (e.g., title="...")
+    function escapeAttr(text){
+      const s = String(text == null ? '' : text);
+      return s
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/[\r\n]+/g, ' ');
+    }
+
+    function getMagnifyIcon(){
+      return document.body.classList.contains('dark') ? 'media/Magnifying Glass Dark.png' : 'media/Magnifying Glass Light.png';
+    }
+
+    function buildPopupHtml(s){
+      const popupTitle = s.isHealthyStore
+        ? `<img src="media/check.png" class="known-healthy" data-tip="Known Healthy Store" alt="Healthy" style="width:14px; height:14px; vertical-align:middle; margin-right:4px"/><strong>${s.name}</strong>`
+        : `<strong>${s.name}</strong>`;
+      const timeText = formatWalkTime(s.distance_m);
+      const score = (typeof s.aiScore === 'number' && isFinite(s.aiScore)) ? Math.max(1, Math.min(10, Math.round(s.aiScore))) : null;
+      const ratingColor = score ? scoreToColor(score) : null;
+      const reasonTitle = (typeof s.aiReason === 'string' && s.aiReason.trim()) ? escapeAttr(s.aiReason) : 'No reason provided';
+      return `${popupTitle} <button class="icon-btn" data-ask="${encodeURIComponent(s.name)}" title="Ask coach about this place"><img data-magnify="1" src="${getMagnifyIcon()}" alt="Ask" style="width:12px; height:12px; vertical-align:middle"/></button><br/>${s.address}<br/>${s.city} ${s.zip}<br/><strong>Store type:</strong> ${s.storeType || 'N/A'}${score ? `<br/><strong>Rating:</strong> <span class=\"tag rating\" style=\"background:${ratingColor}\" data-reason=\"${reasonTitle}\">${score}/10</span>` : ''}<br/>${formatDistance(s.distance_m)}${timeText ? ` · ~${timeText}` : ''}`;
+    }
+
+    function addMarkers(items){
+      clearMarkers();
+      currentHighlightedMarker = null;
+      items.forEach(s => {
+        const color = getMarkerColorForStore(s);
+        const popupTitle = s.isHealthyStore
+          ? `<img src="media/check.png" class="known-healthy" data-tip="Known Healthy Store" alt="Healthy" style="width:14px; height:14px; vertical-align:middle; margin-right:4px"/><strong>${s.name}</strong>`
+          : `<strong>${s.name}</strong>`;
+        const timeText = formatWalkTime(s.distance_m);
+        const score = (typeof s.aiScore === 'number' && isFinite(s.aiScore)) ? Math.max(1, Math.min(10, Math.round(s.aiScore))) : null;
+        const ratingColor = score ? scoreToColor(score) : null;
+        const reasonTitle = (typeof s.aiReason === 'string' && s.aiReason.trim()) ? escapeAttr(s.aiReason) : 'No reason provided';
+        const popupHtml = buildPopupHtml(s);
+
+        let marker;
+        if (s.isHealthyStore) {
+          marker = createDiamondMarker(s.latitude, s.longitude, color);
+        } else {
+          const size = 22; // diameter similar to radius 11
+          const icon = createCircleIcon(color, size);
+          marker = L.marker([s.latitude, s.longitude], { icon });
+          marker.__type = 'circle';
+          marker.__baseSize = size;
+          marker.__color = color;
+        }
+        marker.addTo(map).bindPopup(popupHtml);
+        // When marker clicked, switch to Stores tab and navigate to the item (even across pages)
+        marker.on('click', () => {
+          try{
+            const storesTabBtn = document.querySelector('.tabs button[data-tab="stores"]');
+            if (storesTabBtn) storesTabBtn.click();
+            // Compute page index for this store within current sorted results
+            const idStr = String(s.id || '');
+            const idx = Array.isArray(fullResults) ? fullResults.findIndex(r => String(r && r.id || '') === idStr) : -1;
+            if (idx >= 0){
+              currentPage = Math.floor(idx / pageSize) + 1;
+              renderList(fullResults);
+            }
+            // Scroll to the corresponding list item by id after render
+            setTimeout(() => {
+              const listRoot = document.getElementById('list');
+              if (!listRoot) return;
+              // Find the element with matching store id
+              const target = listRoot.querySelector(`[data-store-id="${idStr}"]`);
+              if (target && typeof target.scrollIntoView === 'function'){
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Toggle persistent selected highlight until a different marker/list item is clicked
+                document.querySelectorAll('#list .store.selected').forEach(el => el.classList.remove('selected'));
+                target.classList.add('selected');
+              }
+            }, 0);
+          } catch {}
+        });
+        marker.on('popupopen', () => {
+          const root = marker.getPopup().getElement();
+          if (!root) return;
+          // Ensure magnify icon matches current theme
+          try {
+            const mg = root.querySelector('img[data-magnify]');
+            if (mg) mg.src = getMagnifyIcon();
+          } catch {}
+          // Ensure corresponding list item is marked as selected when popup opens
+          try{
+            const idStr = String(s.id || '');
+            document.querySelectorAll('#list .store.selected').forEach(el => el.classList.remove('selected'));
+            const listRoot = document.getElementById('list');
+            if (listRoot){
+              const target = listRoot.querySelector(`[data-store-id="${idStr}"]`);
+              if (target) target.classList.add('selected');
+            }
+          } catch {}
+          const btn = root.querySelector('button[data-ask]');
+          if (btn){
+            btn.addEventListener('click', (e) => {
+              e.preventDefault();
+              // Switch to coach tab
+              const coachBtn = document.querySelector('.tabs button[data-tab="coach"]');
+              if (coachBtn){ coachBtn.click(); }
+              const storeName = decodeURIComponent(btn.getAttribute('data-ask') || 'this location');
+              const q = `What food options might I find at ${storeName}?`;
+              document.getElementById('chatInput').value = q;
+              document.getElementById('chatSend').click();
+            }, { once: true });
+          }
+        });
+        // When popup closes, clear selected highlight for this store
+        marker.on('popupclose', () => {
+          try{
+            const idStr = String(s.id || '');
+            const listRoot = document.getElementById('list');
+            if (!listRoot) return;
+            const target = listRoot.querySelector(`[data-store-id="${idStr}"]`);
+            if (target) target.classList.remove('selected');
+          } catch {}
+        });
+        // Keep a reference for highlight from list
+        try { s._marker = marker; } catch {}
+        markers.push(marker);
+      });
+    }
+
+    function resetCurrentHighlight(){
+      if (!currentHighlightedMarker) return;
+      const m = currentHighlightedMarker;
+      try {
+        if (m.__type === 'circle' && typeof m.__baseSize === 'number'){
+          const color = m.__color || '#5AC68A';
+          m.setIcon(createCircleIcon(color, m.__baseSize));
+        } else if (m.__type === 'diamond' && typeof m.__baseSize === 'number'){
+          const color = m.__color || '#5AC68A';
+          m.setIcon(createDiamondIcon(color, m.__baseSize));
+        }
+      } catch {}
+      currentHighlightedMarker = null;
+    }
+
+    function highlightMarker(marker){
+      if (!marker) return;
+      if (currentHighlightedMarker === marker) return;
+      resetCurrentHighlight();
+      try {
+        HIGHLIGHT_SIZE_INCREASE = 25;
+        if (marker.__type === 'circle'){
+          const base = typeof marker.__baseSize === 'number' ? marker.__baseSize : 22;
+          const color = marker.__color || '#5AC68A';
+          marker.setIcon(createCircleIcon(color, base + HIGHLIGHT_SIZE_INCREASE));
+        } else if (marker.__type === 'diamond'){
+          const base = typeof marker.__baseSize === 'number' ? marker.__baseSize : 24;
+          const color = marker.__color || '#5AC68A';
+          marker.setIcon(createDiamondIcon(color, base + HIGHLIGHT_SIZE_INCREASE));
+        }
+        currentHighlightedMarker = marker;
+      } catch {}
+    }
+
+    async function queryStores(lat, lng){
+      currentLat = lat; currentLng = lng;
+      const radius = document.getElementById('radius').value;
+      const healthy = document.getElementById('healthy').value;
+      const maxSel = (localStorage.getItem('max_results') || '200');
+      const limit = (maxSel === 'Unlimited') ? 1000000 : parseInt(maxSel, 10) || 200;
+      const url = `/stores?lat=${lat}&lng=${lng}&radius=${radius}&isHealthy=${healthy}&limit=${limit}`;
+      try{
+        const res = await fetch(API_BASE + url);
+        if (!res.ok) throw new Error('fetch failed');
+      const data = await res.json();
+      addMarkers(data);
+      renderList(data);
+      if (data.length){ map.setView([data[0].latitude, data[0].longitude], map.getZoom()); }
+        return data;
+      }catch{
+        renderList([]);
+        return [];
+      }
+    }
+
+    async function queryWithFallback(lat, lng){
+      // Try current radius; if zero, expand progressively
+      const rSel = document.getElementById('radius');
+      const original = rSel.value;
+      currentPage = 1;
+      let data = await queryStores(lat, lng);
+      if (data.length) return;
+      const options = ['1609','3219','8046'];
+      for (const r of options){
+        if (r === original) continue;
+        rSel.value = r;
+        data = await queryStores(lat, lng);
+        if (data.length) return;
+      }
+      // restore original if still empty
+      rSel.value = original;
+    }
+
+    async function zipToLatLng(zip){
+      try{
+        const res = await fetch(`${API_BASE}/zip/${encodeURIComponent(zip)}`);
+        if (!res.ok) throw new Error('zip not found');
+        const j = await res.json();
+        return [j.latitude, j.longitude];
+      }catch{
+        return [40.758,-73.985];
+      }
+    }
+
+    let myLocationMarker = null;
+    document.getElementById('locBtn').addEventListener('click', () => {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const { latitude, longitude } = pos.coords;
+        map.setView([latitude, longitude], DEFAULT_ZOOM);
+        if (myLocationMarker){ map.removeLayer(myLocationMarker); }
+        const zip = (document.getElementById('zip')?.value || '').trim();
+        const zipSuffix = zip ? ` (ZIP ${zip})` : '';
+        myLocationMarker = L.marker([latitude, longitude]).addTo(map).bindPopup(`My location${zipSuffix}`);
+        myLocationMarker.openPopup();
+        queryStores(latitude, longitude);
+      }, () => alert('Location permission denied. Enter a ZIP instead.'));
+    });
+
+    document.getElementById('searchBtn').addEventListener('click', async () => {
+      const zip = document.getElementById('zip').value.trim();
+      const [lat, lng] = await zipToLatLng(zip);
+      currentLat = lat; currentLng = lng;
+      map.setView([lat, lng], DEFAULT_ZOOM);
+      if (myLocationMarker){ map.removeLayer(myLocationMarker); }
+      const zipSuffix = zip ? ` (ZIP ${zip})` : '';
+      myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location${zipSuffix}`);
+      myLocationMarker.openPopup();
+      queryWithFallback(lat, lng);
+    });
+
+    // Initial default ZIP center (10452) with My location marker
+    (async () => {
+      try{
+        const zipInput = document.getElementById('zip');
+        if (zipInput) zipInput.value = '';
+        const [lat, lng] = await zipToLatLng('10452');
+        currentLat = lat; currentLng = lng;
+      map.setView([lat, lng], DEFAULT_ZOOM);
+        if (typeof myLocationMarker !== 'undefined'){
+          if (myLocationMarker){ map.removeLayer(myLocationMarker); }
+          myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup('My location (ZIP 10452)');
+        }
+        queryWithFallback(lat, lng);
+        // Sync radius labels to units preference on first load
+        try { updateRadiusLabels(); } catch {}
+      }catch{
+        queryWithFallback(40.758, -73.985);
+      }
+    })();
+
+    // Lightweight custom tooltip for AI rating reasons
+    const tipEl = document.createElement('div');
+    tipEl.className = 'hover-tip';
+    document.body.appendChild(tipEl);
+    let tipVisible = false;
+    function showTip(text, anchorEl){
+      tipEl.textContent = text || '';
+      tipEl.style.display = 'block';
+      const rect = anchorEl.getBoundingClientRect();
+      const tipWidth = Math.min(260, tipEl.offsetWidth || 0) || 0;
+      const desiredLeft = rect.left + (rect.width / 2) - (tipWidth / 2);
+      const clampedLeft = Math.max(8, Math.min(window.innerWidth - 8 - tipWidth, desiredLeft));
+      tipEl.style.left = clampedLeft + 'px';
+      tipEl.style.top = (rect.bottom + 8) + 'px';
+      tipVisible = true;
+    }
+    function hideTip(){
+      if (!tipVisible) return;
+      tipEl.style.display = 'none';
+      tipVisible = false;
+    }
+    // Delegate hover events for rating tags and known healthy check icon
+    document.addEventListener('mouseover', (e) => {
+      const target = /** @type {HTMLElement} */(e.target);
+      if (!target || !target.classList) return;
+      if (target.classList.contains('rating')){
+        const reason = target.getAttribute('data-reason') || '';
+        if (reason){ showTip(reason, target); }
+      } else if (target.classList.contains('known-healthy')){
+        const txt = target.getAttribute('data-tip') || 'Known Healthy Store';
+        showTip(txt, target);
+      }
+    });
+    // No cursor-follow; hide when pointer leaves the tag
+    document.addEventListener('mouseout', (e) => {
+      const related = /** @type {HTMLElement|null} */(e.relatedTarget);
+      const from = /** @type {HTMLElement} */(e.target);
+      if (!from || !from.classList) return;
+      if (from.classList.contains('rating')){
+        if (!related || !related.classList || !related.classList.contains('rating')) hideTip();
+      } else if (from.classList.contains('known-healthy')){
+        if (!related || !related.classList || !related.classList.contains('known-healthy')) hideTip();
+      }
+    });
+
+    // Live re-query on filter changes
+    document.getElementById('radius').addEventListener('change', () => {
+      queryStores(currentLat, currentLng);
+    });
+    document.getElementById('healthy').addEventListener('change', () => {
+      queryStores(currentLat, currentLng);
+    });
+    document.getElementById('sortBy').addEventListener('change', () => {
+      // Resort current results and re-render list only
+      renderList(fullResults);
+    });
+
+    // Tabs
+    document.querySelectorAll('.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // Pagination controls
+    document.getElementById('prevPage').addEventListener('click', () => {
+      if (currentPage > 1){ currentPage -= 1; renderList(fullResults); }
+    });
+    document.getElementById('nextPage').addEventListener('click', () => {
+      const totalPages = Math.max(1, Math.ceil(fullResults.length / pageSize));
+      if (currentPage < totalPages){ currentPage += 1; renderList(fullResults); }
+    });
+    document.getElementById('pageSize').addEventListener('change', (e) => {
+      pageSize = parseInt(e.target.value, 10) || 50;
+      currentPage = 1;
+      renderList(fullResults);
+    });
+
+    // Onboarding modal
+    function renderOnboarding(){
+      if (localStorage.getItem('onboarded')) return;
+      const overlay = document.createElement('div');
+      overlay.className = 'onboard';
+      // Start transparent for fade-in
+      overlay.style.opacity = '0';
+      overlay.innerHTML = `
+        <div class="bg-fruit" aria-hidden="true"></div>
+        <div class="title-hero">SNAPwise NYC</div>
+        <div class="card">
+          <div class="logo-wrap"><img src="media/icons/IconCover180x180.png" alt="App icon" onerror="this.onerror=null; this.src='media/icons/InWebsiteIcon.png';"></div>
+          <h2>Welcome! What brings you here?</h2>
+          <p>Select a goal to personalize your experience.</p>
+          <div class="goals">
+            <div class="goal" data-goal="lose_weight">Lose weight</div>
+            <div class="goal" data-goal="cheap_food">Spend less on food</div>
+            <div class="goal" data-goal="explore">Explore options</div>
+          </div>
+          <div class="field">
+            <label>Are you currently on SNAP Food Stamps?</label>
+            <div class="radio-group">
+              <label><input type="radio" name="snapStatus" value="yes"> Yes, I am</label>
+              <label><input type="radio" name="snapStatus" value="no"> No, I am not</label>
+            </div>
+          </div>
+          <div class="field">
+            <label>Which borough of NYC do you live in?</label>
+            <select id="boroughSelect">
+              <option value="">Select borough…</option>
+              <option value="Bronx">Bronx</option>
+              <option value="Brooklyn">Brooklyn</option>
+              <option value="Manhattan">Manhattan</option>
+              <option value="Queens">Queens</option>
+              <option value="Staten Island">Staten Island</option>
+            </select>
+          </div>
+          <div class="actions">
+            <button id="skipOnboard" class="btn btn-ghost">Skip</button>
+            <button id="continueOnboard" class="btn btn-primary" disabled>Continue</button>
+          </div>
+        </div>
+        <div style="font-size:10px; font-style:italic; color:var(--muted); text-align:center; margin:8px 0 0 0;">Maximilian Ising</div>`;
+      document.body.appendChild(overlay);
+      // Trigger fade-in next frame, then clear inline opacity so fade-out works later
+      try {
+        requestAnimationFrame(() => {
+          overlay.style.opacity = '1';
+          setTimeout(() => { try { overlay.style.removeProperty('opacity'); } catch {} }, 600);
+        });
+      } catch {
+        setTimeout(() => {
+          try { overlay.style.opacity = '1'; } catch {}
+          setTimeout(() => { try { overlay.style.removeProperty('opacity'); } catch {} }, 600);
+        }, 0);
+      }
+      let selected = null;
+      // Falling fruit background
+      try{
+        const FRUITS = [
+          'media/fruit/Apple.png',
+          'media/fruit/Avocado.png',
+          'media/fruit/Banana.png',
+          'media/fruit/Blue Berries.png',
+          'media/fruit/Carrot.png',
+          'media/fruit/Cherry.png',
+          'media/fruit/Coconut.png',
+          'media/fruit/Corn.png',
+          'media/fruit/Cranberries.png',
+          'media/fruit/Eggplant.png',
+          'media/fruit/Grapes.png',
+          'media/fruit/Lettuce.png',
+          'media/fruit/Mango.png',
+          'media/fruit/Onion.png',
+          'media/fruit/Pear.png',
+          'media/fruit/Pepper.png',
+          'media/fruit/Strawberries.png',
+          'media/fruit/Tomato.png',
+          'media/fruit/Watermelon.png',
+        ];
+        const bg = overlay.querySelector('.bg-fruit');
+        // Steady stream: spawn one fruit at a time with random intervals
+        const MAX_FRUITS = 80; // cap existing nodes
+        const MIN_INTERVAL = 100; // ms
+        const MAX_INTERVAL = 400; // ms
+        function spawnFruit(){
+          if (!bg) return false;
+          // If at cap, skip this tick (avoid popping existing fruit)
+          if (bg.children.length >= MAX_FRUITS){
+            return false;
+          }
+          const el = document.createElement('img');
+          el.className = 'fruit';
+          el.src = FRUITS[Math.floor(Math.random()*FRUITS.length)];
+          const size = 50 + Math.random()*50; // 50-100px
+          let left = Math.random()*100; // vw
+          const duration = 6 + Math.random()*6; // 6-12s
+          el.style.width = `${size}px`;
+          el.style.height = 'auto';
+          el.style.left = `${left}vw`;
+          // Run once, then remove on finish
+          el.style.animation = `fruitFall ${duration}s linear 0s 1 both`;
+          el.addEventListener('animationiteration', () => {
+            left = Math.max(0, Math.min(100, left + (Math.random()*20 - 10)));
+            el.style.left = `${left}vw`;
+          });
+          el.addEventListener('animationend', () => {
+            try { el.remove(); } catch {}
+          });
+          bg.appendChild(el);
+          return true;
+        }
+        (function tick(){
+          spawnFruit();
+          const next = MIN_INTERVAL + Math.random()*(MAX_INTERVAL - MIN_INTERVAL);
+          setTimeout(tick, next);
+        })();
+      } catch {}
+      function updateContinueState(){
+        const hasGoal = !!selected;
+        const hasSnap = !!overlay.querySelector('input[name="snapStatus"]:checked');
+        const boroughVal = (overlay.querySelector('#boroughSelect')?.value || '').trim();
+        const hasBorough = !!boroughVal;
+        overlay.querySelector('#continueOnboard').disabled = !(hasGoal && hasSnap && hasBorough);
+      }
+      overlay.querySelectorAll('.goal').forEach(el => {
+        el.addEventListener('click', () => {
+          overlay.querySelectorAll('.goal').forEach(g => g.classList.remove('selected'));
+          el.classList.add('selected');
+          selected = el.dataset.goal;
+          updateContinueState();
+        });
+      });
+      overlay.querySelectorAll('input[name="snapStatus"]').forEach(r => r.addEventListener('change', updateContinueState));
+      overlay.querySelector('#boroughSelect').addEventListener('change', updateContinueState);
+      overlay.querySelector('#skipOnboard').addEventListener('click', () => {
+        localStorage.setItem('onboarded', '1');
+        // Ensure inline opacity does not block fade-out
+        try { overlay.style.removeProperty('opacity'); } catch {}
+        // Fade out then remove (match CSS duration)
+        overlay.classList.add('fade-out');
+        setTimeout(() => { try{ document.body.removeChild(overlay); } catch {} }, 800);
+      });
+      overlay.querySelector('#continueOnboard').addEventListener('click', () => {
+        userGoal = selected || 'explore';
+        // Save additional onboarding info
+        const snapEl = overlay.querySelector('input[name="snapStatus"]:checked');
+        const snapStatus = snapEl ? snapEl.value : undefined;
+        const borough = (overlay.querySelector('#boroughSelect')?.value || '').trim() || undefined;
+        localStorage.setItem('goal', userGoal);
+        localStorage.setItem('onboarded', '1');
+        if (snapStatus) localStorage.setItem('snap_status', snapStatus);
+        if (borough) localStorage.setItem('borough', borough);
+        // Ensure inline opacity does not block fade-out
+        try { overlay.style.removeProperty('opacity'); } catch {}
+        // Fade out then remove (match CSS duration)
+        overlay.classList.add('fade-out');
+        setTimeout(() => { try{ document.body.removeChild(overlay); } catch {} }, 800);
+        // Prime coach with a welcome
+        appendChat('assistant', `Got it! If your goal is ${userGoal.replace('_',' ')}, focus on protein, fiber, and low-cost basics. Ask me for a 5-minute meal idea!`);
+      });
+    }
+    renderOnboarding();
+    // Settings: Return to home screen
+    (function(){
+      const btn = document.getElementById('returnHome');
+      if (!btn) return;
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        try {
+          localStorage.removeItem('onboarded');
+          localStorage.removeItem('goal');
+          localStorage.removeItem('snap_status');
+          localStorage.removeItem('borough');
+        } catch {}
+        // Rerender onboarding overlay (fade-in handled in renderOnboarding)
+        renderOnboarding();
+        // Close the settings dropdown if open
+        const settings = document.getElementById('settings');
+        if (settings) settings.open = false;
+        // Scroll to top for visibility
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    })();
+
+    // Close settings dropdown when clicking outside or pressing Escape
+    (function(){
+      const settings = document.getElementById('settings');
+      if (!settings) return;
+      document.addEventListener('click', (e) => {
+        try{
+          if (!settings.open) return;
+          const target = /** @type {HTMLElement} */(e.target);
+          if (!target) return;
+          if (settings.contains(target)) return;
+          settings.open = false;
+        } catch {}
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && settings.open){
+          settings.open = false;
+        }
+      });
+    })();
+
+    // Theme: Dark mode toggle
+    (function(){
+      const checkbox = document.getElementById('toggleDark');
+      const saved = localStorage.getItem('theme') || 'light';
+      if (saved === 'dark'){
+        document.body.classList.add('dark');
+        if (checkbox) checkbox.checked = true;
+        const ri = document.getElementById('reviewDietIcon');
+        if (ri) ri.src = 'media/Magnifying Glass Dark.png';
+      }
+      // Ensure map tiles match initial theme on load
+      try { updateMapTheme(); } catch {}
+      if (!checkbox) return;
+      checkbox.addEventListener('change', () => {
+        const enable = checkbox.checked;
+        document.body.classList.toggle('dark', enable);
+        localStorage.setItem('theme', enable ? 'dark' : 'light');
+        const ri = document.getElementById('reviewDietIcon');
+        if (ri) ri.src = enable ? 'media/Magnifying Glass Dark.png' : 'media/Magnifying Glass Light.png';
+        // Update any open marker popup magnify icons
+        try{
+          document.querySelectorAll('.leaflet-popup-content img[data-magnify]')
+            .forEach(img => { img.src = getMagnifyIcon(); });
+        } catch {}
+        // Update map tiles to match theme
+        try{ updateMapTheme(); } catch {}
+      });
+    })();
+
+    // Units preference: mi/km
+    (function(){
+      const sel = document.getElementById('unitSystem');
+      if (!sel) return;
+      const saved = localStorage.getItem('units') || 'mi';
+      sel.value = saved === 'km' ? 'km' : 'mi';
+      // Update radius labels on load
+      try { updateRadiusLabels(); } catch {}
+      sel.addEventListener('change', () => {
+        const v = sel.value === 'km' ? 'km' : 'mi';
+        localStorage.setItem('units', v);
+        // Re-render current results and popups with updated distance units
+        try{
+          renderList(fullResults);
+          updateRadiusLabels();
+          // Refresh marker popups by rebuilding their HTML if open next time
+          // New popups will read units via helper functions
+        } catch {}
+      });
+    })();
+
+    // Coach response length (button group)
+    (function(){
+      const group = document.getElementById('respLenGroup');
+      if (!group) return;
+      const saved = (localStorage.getItem('resp_len') || 'default');
+      function applyActive(val){
+        group.querySelectorAll('button').forEach(b => {
+          const isActive = (b.getAttribute('data-val') === val);
+          b.classList.toggle('btn-primary', isActive);
+        });
+      }
+      applyActive(['concise','default','comprehensive'].includes(saved) ? saved : 'default');
+      group.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const v = btn.getAttribute('data-val') || 'default';
+          const cleaned = ['concise','default','comprehensive'].includes(v) ? v : 'default';
+          localStorage.setItem('resp_len', cleaned);
+          applyActive(cleaned);
+        });
+      });
+    })();
+
+    // Max results (dropdown)
+    (function(){
+      const sel = document.getElementById('maxResults');
+      if (!sel) return;
+      const saved = localStorage.getItem('max_results') || '200';
+      sel.value = ['100','200','500','Unlimited'].includes(saved) ? saved : '200';
+      sel.addEventListener('change', () => {
+        const v = sel.value;
+        const cleaned = ['100','200','500','Unlimited'].includes(v) ? v : '200';
+        localStorage.setItem('max_results', cleaned);
+        try{ queryStores(currentLat, currentLng); } catch {}
+      });
+    })();
+
+    // Chat
+    function appendChat(role, text){
+      const log = document.getElementById('chatLog');
+      const div = document.createElement('div');
+      div.className = `msg ${role}`;
+      if (role === 'assistant'){
+        const html = DOMPurify.sanitize(marked.parse(String(text || '')));
+        div.innerHTML = html;
+      } else {
+        div.textContent = text;
+      }
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      return div;
+    }
+    function createThinkingMessage(){
+      const log = document.getElementById('chatLog');
+      const div = document.createElement('div');
+      div.className = 'msg assistant';
+      const span = document.createElement('span');
+      span.className = 'thinking';
+      span.textContent = '.';
+      div.appendChild(span);
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      return { container: div, dotsEl: span };
+    }
+    function startThinkingAnimation(el){
+      if (!el) return;
+      try{ if (el._thinkingTimer) clearInterval(el._thinkingTimer); } catch {}
+      const frames = ['Thinking.', 'Thinking..', 'Thinking...'];
+      let i = 0;
+      el.textContent = frames[i];
+      el._thinkingTimer = setInterval(() => {
+        i = (i + 1) % frames.length;
+        el.textContent = frames[i];
+      }, 400);
+    }
+    function stopThinkingAnimation(el){
+      try{ if (el && el._thinkingTimer){ clearInterval(el._thinkingTimer); el._thinkingTimer = null; } } catch {}
+    }
+    document.getElementById('chatClear').addEventListener('click', () => {
+      chatMessages = [];
+      const log = document.getElementById('chatLog');
+      log.innerHTML = '';
+    });
+    async function sendChat(text){
+      chatMessages.push({ role: 'user', content: text });
+      appendChat('user', text);
+      const thinking = createThinkingMessage();
+      startThinkingAnimation(thinking.dotsEl);
+      const respLen = (localStorage.getItem('resp_len') || 'default');
+      const body = { goal: userGoal, responseLength: respLen, messages: chatMessages.slice(-10), context: { zip: document.getElementById('zip').value } };
+      const res = await fetch(`${API_BASE}/chat`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      if (!res.ok){ stopThinkingAnimation(thinking.dotsEl); thinking.container.textContent = 'Sorry, the coach is busy. Try again.'; return; }
+      const data = await res.json();
+      const msg = data.choices?.[0]?.message?.content || 'Okay.';
+      chatMessages.push({ role:'assistant', content: msg });
+      stopThinkingAnimation(thinking.dotsEl);
+      thinking.container.innerHTML = DOMPurify.sanitize(marked.parse(String(msg || '')));
+    }
+    document.getElementById('chatSend').addEventListener('click', () => {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return; input.value = '';
+      sendChat(text);
+    });
+    document.getElementById('chatInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('chatSend').click();
+    });
+    // Enter to search by ZIP
+    (function(){
+      const zipInput = document.getElementById('zip');
+      if (!zipInput) return;
+      zipInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter'){
+          e.preventDefault();
+          const btn = document.getElementById('searchBtn');
+          if (btn) btn.click();
+        }
+      });
+    })();
+    // Voice input
+    // Speech input removed. Keep guard if re-enabled in the future.
+
+    // Nutrition tracker
+    function loadTracker(){
+      const raw = localStorage.getItem('tracker') || '{}';
+      try { return JSON.parse(raw); } catch { return {}; }
+    }
+    function saveTracker(state){ localStorage.setItem('tracker', JSON.stringify(state)); }
+    function todayKey(){ const d = new Date(); return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`; }
+    function renderTracker(){
+      const state = loadTracker();
+      const day = state[todayKey()] || { meals:[], totals:{cal:0, protein:0} };
+      document.getElementById('calTarget').value = state.calTarget || '';
+      document.getElementById('proteinTarget').value = state.proteinTarget || '';
+      document.getElementById('mealList').innerHTML = day.meals.map(m => `<div class="muted">${m.name}: ${m.cal} cal, ${m.protein}g</div>`).join('');
+      const calT = parseInt(state.calTarget || '0', 10);
+      const proT = parseInt(state.proteinTarget || '0', 10);
+      document.getElementById('todayTotals').textContent = `Calories: ${day.totals.cal}${calT?` / ${calT}`:''} · Protein: ${day.totals.protein}g${proT?` / ${proT}g`:''}`;
+    }
+    function addMeal(name, cal, protein){
+      if (!name || !Number.isFinite(cal) || !Number.isFinite(protein)) return;
+      const state = loadTracker();
+      const key = todayKey();
+      if (!state[key]) state[key] = { meals:[], totals:{cal:0, protein:0} };
+      state[key].meals.push({ name, cal, protein });
+      state[key].totals.cal += cal;
+      state[key].totals.protein += protein;
+      saveTracker(state);
+      renderTracker();
+    }
+    document.getElementById('addMeal').addEventListener('click', () => {
+      const name = document.getElementById('mealName').value.trim();
+      const cal = parseInt(document.getElementById('mealCals').value || '0', 10);
+      const protein = parseInt(document.getElementById('mealProtein').value || '0', 10);
+      addMeal(name, cal, protein);
+      document.getElementById('mealName').value = '';
+      document.getElementById('mealCals').value = '';
+      document.getElementById('mealProtein').value = '';
+    });
+    document.getElementById('resetLog').addEventListener('click', () => {
+      if (!confirm('Clear today\'s meals? This cannot be undone.')) return;
+      const state = loadTracker();
+      const key = todayKey();
+      if (state[key]){
+        state[key] = { meals:[], totals:{cal:0, protein:0} };
+        saveTracker(state);
+        renderTracker();
+      }
+    });
+    document.getElementById('reviewDiet').addEventListener('click', () => {
+      const state = loadTracker();
+      const key = todayKey();
+      const day = state[key] || { meals:[], totals:{cal:0, protein:0} };
+      const summary = {
+        totals: day.totals,
+        meals: day.meals,
+        targets: { cal: parseInt(state.calTarget||'0',10)||0, protein: parseInt(state.proteinTarget||'0',10)||0 }
+      };
+      const coachBtn = document.querySelector('.tabs button[data-tab="coach"]');
+      if (coachBtn){ coachBtn.click(); }
+      const q = `Please review today's diet in depth. What's missing and what's in excess? Consider targets if set. Here's JSON: ${JSON.stringify(summary)}`;
+      document.getElementById('chatInput').value = q;
+      document.getElementById('chatSend').click();
+    });
+    document.getElementById('calTarget').addEventListener('change', (e) => {
+      const state = loadTracker();
+      state.calTarget = parseInt(e.target.value || '0', 10) || undefined;
+      saveTracker(state); renderTracker();
+    });
+    document.getElementById('proteinTarget').addEventListener('change', (e) => {
+      const state = loadTracker();
+      state.proteinTarget = parseInt(e.target.value || '0', 10) || undefined;
+      saveTracker(state); renderTracker();
+    });
+    renderTracker();
+  </script>
+</body>
+</html>
+
+
