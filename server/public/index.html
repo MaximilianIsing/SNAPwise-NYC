@@ -179,7 +179,17 @@
     .settings{position:relative}
     .settings > summary{list-style:none}
     .settings > summary::-webkit-details-marker{display:none}
-    .settings-menu{position:absolute; right:0; top:calc(100% + 8px); background:var(--white); border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 24px rgba(15,23,42,0.12); padding:10px; min-width:260px; z-index:1000}
+    /* Smooth open/close for settings dropdown */
+    .settings-menu{
+      position:absolute; right:0; top:calc(100% + 8px);
+      background:var(--white); border:1px solid var(--border); border-radius:12px;
+      box-shadow:0 8px 24px rgba(15,23,42,0.12); padding:10px; min-width:260px; z-index:2000;
+      opacity:0; transform: translateY(-6px) scale(0.98); transform-origin: top right;
+      transition: opacity .18s ease, transform .18s ease;
+      pointer-events:none; /* keep rendered for smooth close */
+    }
+    .settings.is-open .settings-menu{ opacity:1; transform: translateY(0) scale(1); pointer-events:auto }
+    @media (prefers-reduced-motion: reduce){ .settings-menu{ transition: none } }
     .settings-item{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0}
     .settings-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0}
     /* Theme switch */
@@ -230,14 +240,24 @@
     @media (max-width: 1200px){
       main{ grid-template-columns: 1fr 360px; }
     }
-    /* Tablets/phones: stack layout, ensure map remains visible */
+    /* Tablets/phones: bottom-sheet panel over full-height map */
     @media (max-width: 900px){
+      /* Prevent page scroll; sheet and lists handle it. Fix header jump by pinning header. */
+      html, body{ overflow:hidden; height:100%; overscroll-behavior:none }
+      header{ position:sticky; top:0; z-index:1500 }
       header{ flex-wrap:wrap; align-items:center }
       .disclaimer{ display:none }
-      main{ grid-template-columns: 1fr; grid-template-rows: auto auto }
-      #map{ height: 60vh }
-      .panel{ height:auto; max-height:40vh; overflow:auto; -webkit-overflow-scrolling:touch }
+      main{ grid-template-columns: 1fr; grid-template-rows: auto 1fr }
+      /* Map fills viewport beneath header; avoid iOS toolbar jumps and ensure map never overlays header */
+      #map{ height: calc(100dvh - var(--header-h, 64px)); margin-top:0 }
+      /* Bottom sheet styling */
+      .panel{ position:fixed; left:0; right:0; bottom:0; margin:0; border-radius:16px 16px 0 0; height: var(--sheet-height, 56vh); max-height:none; overflow:auto; -webkit-overflow-scrolling:touch; z-index:1100; box-shadow:0 -6px 20px rgba(15,23,42,0.12); transition: height .25s ease }
+      
       .tabs{ position:sticky; top:0; background:var(--white); z-index:2 }
+      /* Larger, consistent grab handle */
+      .sheet-handle{ position:relative; padding:14px 0; margin:-4px auto 6px auto; touch-action:none; -webkit-user-select:none; user-select:none; cursor:grab }
+      .sheet-handle::after{ content:""; display:block; width:clamp(48px, 18vw, 80px); height:6px; border-radius:999px; background:var(--border); margin:0 auto }
+      .sheet-handle:active{ cursor:grabbing }
       /* Ensure tracker tab contents can scroll within the panel */
       #tab-tracker{ flex:1 1 auto; overflow:auto; -webkit-overflow-scrolling:touch }
       /* Keep settings on first row, right aligned with title; move controls below */
@@ -265,7 +285,7 @@
       .controls input, .controls select{ padding:6px 8px; font-size:14px }
       .controls button{ padding:7px 10px; font-size:14px }
       .tabs button{ padding:6px; font-size:12px }
-      .legend{ left:8px; bottom:8px; padding:6px 8px }
+      .legend{ left:auto; right:12px; top:12px; bottom:auto; padding:6px 8px; z-index:1700 }
       /* Home (onboarding) compact layout for iOS/small screens */  
       .onboard{ align-items:stretch; justify-content:flex-start; padding: max(12px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom)); height:100svh; overflow:auto }
       .onboard .title-hero{ font-size:clamp(36px, 8vw, 48px); margin:8px 0 10px 0 }
@@ -321,7 +341,7 @@
       <details class="settings" id="settings">
         <summary class="btn btn-primary btn-icon" title="Settings"><img src="media/Settings.png" alt="Settings" style="width:18px; height:18px"/></summary>
         <div class="settings-menu">
-          <div style="position:absolute; top:6px; right:10px; font-size:10px; font-style:italic; color:var(--muted); pointer-events:none">v1.01</div>
+          <div style="position:absolute; top:6px; right:10px; font-size:10px; font-style:italic; color:var(--muted); pointer-events:none">v1.02</div>
           <div class="muted" style="font-weight:600; margin-bottom:6px; text-align:center">Settings</div>
           <div class="settings-row">
             <div class="theme-toggle" style="flex:0 0 auto; justify-content:flex-start">
@@ -371,6 +391,7 @@
         </div>
       </div>
       <aside class="panel">
+        <div class="sheet-handle" aria-hidden="true"></div>
         <div class="tabs">
           <button data-tab="stores" class="active">Stores</button>
           <button data-tab="coach">Coach</button>
@@ -654,6 +675,30 @@
     }
     updateMapTheme();
     renderLegend();
+    // Measure header height for mobile map sizing
+    (function(){
+      const hdr = document.querySelector('header');
+      function set(){ try{ const h = hdr ? hdr.getBoundingClientRect().height : 64; document.documentElement.style.setProperty('--header-h', Math.round(h) + 'px'); } catch{} }
+      set(); window.addEventListener('resize', set); setTimeout(set, 200);
+    })();
+    // Bottom sheet behavior (mobile only)
+    (function(){
+      if (window.matchMedia('(min-width: 901px)').matches) return;
+      const panel = document.querySelector('.panel');
+      if (!panel) return;
+      let startY = 0, startH = 0, dragging = false;
+      const min = 0.03, mid = 0.45, max = 0.80;
+      function vh(){ return Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0); }
+      function setHeight(r){ const clamped = Math.max(min, Math.min(max, r)); document.documentElement.style.setProperty('--sheet-height', Math.round(clamped*100) + 'vh'); try{ if (map && map.invalidateSize) setTimeout(() => map.invalidateSize(), 150); } catch {} }
+      setHeight(0.56);
+      const handle = panel.querySelector('.sheet-handle') || panel;
+      function onStart(e){ dragging = true; startY = (e.touches? e.touches[0].clientY : e.clientY); startH = panel.getBoundingClientRect().height; document.body.style.userSelect='none'; }
+      function onMove(e){ if (!dragging) return; const y = (e.touches? e.touches[0].clientY : e.clientY); const dy = startY - y; const h = Math.max(40, startH + dy); setHeight(h / vh()); }
+      function onEnd(){ if (!dragging) return; dragging = false; document.body.style.userSelect=''; const h = panel.getBoundingClientRect().height / vh(); const targets=[min,mid,max]; let best=targets[0],bd=Math.abs(h-targets[0]); for(let i=1;i<targets.length;i++){ const d=Math.abs(h-targets[i]); if(d<bd){bd=d; best=targets[i];}} setHeight(best); }
+      handle.addEventListener('mousedown', onStart); window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onEnd);
+      handle.addEventListener('touchstart', onStart, { passive:true }); window.addEventListener('touchmove', onMove, { passive:false }); window.addEventListener('touchend', onEnd);
+      window.addEventListener('resize', () => setHeight(panel.getBoundingClientRect().height / vh()));
+    })();
     // Ensure map resizes correctly on layout/viewport changes
     (function(){
       let resizeTimer = null;
@@ -1485,22 +1530,37 @@
       });
     })();
 
-    // Close settings dropdown when clicking outside or pressing Escape
+    // Settings dropdown: keep content mounted and animate every open/close
     (function(){
       const settings = document.getElementById('settings');
       if (!settings) return;
+      const summary = settings.querySelector('summary');
+      // Ensure details stays open so the menu DOM remains mounted (needed for transitions)
+      function ensureOpenAttr(){ try{ if (!settings.open) settings.open = true; } catch{} }
+      ensureOpenAttr();
+      // Toggle our class instead of the native open/close behavior
+      if (summary){
+        summary.addEventListener('click', (e) => {
+          e.preventDefault();
+          ensureOpenAttr();
+          settings.classList.toggle('is-open');
+        });
+      }
+      // Close when clicking outside
       document.addEventListener('click', (e) => {
         try{
-          if (!settings.open) return;
           const target = /** @type {HTMLElement} */(e.target);
           if (!target) return;
           if (settings.contains(target)) return;
-          settings.open = false;
+          settings.classList.remove('is-open');
+          ensureOpenAttr();
         } catch {}
       });
+      // Close on Escape
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && settings.open){
-          settings.open = false;
+        if (e.key === 'Escape'){
+          settings.classList.remove('is-open');
+          ensureOpenAttr();
         }
       });
     })();
