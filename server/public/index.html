@@ -688,8 +688,26 @@
       const panel = document.querySelector('.panel');
       if (!panel) return;
       let startY = 0, startH = 0, dragging = false;
-      const min = 0, mid = 0.4, max = 0.80;
+      const min = 0;
       function vh(){ return Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0); }
+      function headerH(){ try{ const h = document.querySelector('header')?.getBoundingClientRect().height; return Math.max(0, Math.round(h||64)); } catch { return 64; } }
+      function calcMax(){
+        const vhpx = vh();
+        const gap = 22; // small breathing room below header
+        const r = (vhpx - headerH() - gap) / vhpx;
+        return Math.min(0.95, Math.max(mid + 0.05, r));
+      }
+      function calcMid(){
+        const vhpx = vh();
+        const gap = 22;
+        const avail = Math.max(0, vhpx - headerH() - gap);
+        // slightly below halfway of the usable area (exclude header)
+        const r = (avail * 0.48) / vhpx;
+        // keep within sensible bounds relative to min/max
+        return Math.max(min + 0.05, Math.min(0.65, r));
+      }
+      let mid = calcMid();
+      let max = calcMax();
       function applyLock(clamped){
         const locked = clamped <= (min + 0.005);
         panel.classList.toggle('sheet-locked', locked);
@@ -711,7 +729,7 @@
       handle.addEventListener('touchstart', onStart, { passive:true }); window.addEventListener('touchmove', onMove, { passive:false }); window.addEventListener('touchend', onEnd);
       // Prevent swiping content when sheet is at min height
       panel.addEventListener('touchmove', (e) => { if (panel.classList.contains('sheet-locked')) e.preventDefault(); }, { passive:false });
-      window.addEventListener('resize', () => setHeight(panel.getBoundingClientRect().height / vh()));
+      window.addEventListener('resize', () => { mid = calcMid(); max = calcMax(); const cur = panel.getBoundingClientRect().height / vh(); setHeight(Math.min(cur, max)); });
     })();
     // Ensure map resizes correctly on layout/viewport changes
     (function(){
