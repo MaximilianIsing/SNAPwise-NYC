@@ -692,25 +692,31 @@
       let startY = 0, startH = 0, dragging = false;
       const min = 0;
       function vh(){ return Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0); }
-      function headerH(){
+      function topInset(){
         try{
-          const h = document.querySelector('header')?.getBoundingClientRect().height || 64;
-          const safeTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
-          return Math.max(0, Math.round(h + safeTop));
-        } catch { return 64; }
+          // visualViewport offsetTop accounts for iOS browser UI (top bar)
+          const vv = window.visualViewport;
+          if (vv && typeof vv.offsetTop === 'number') return Math.max(0, Math.round(vv.offsetTop));
+        } catch {}
+        const cssInset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
+        return cssInset;
+      }
+      function headerH(){
+        try{ return Math.max(0, Math.round(document.querySelector('header')?.getBoundingClientRect().height || 64)); }
+        catch { return 64; }
       }
       function calcMax(){
-        const vhpx = vh();
+        const vhpx = (window.visualViewport?.height) ? Math.round(window.visualViewport.height) : vh();
         const gap = 22; // small breathing room below header
-        const usable = Math.max(0, vhpx - headerH() - gap);
+        const usable = Math.max(0, vhpx - (topInset() + headerH() + gap));
         const r = usable / vhpx;
-        // Keep a small margin below header and avoid going above 92% of viewport
+        // Keep below header and below 92% of viewport height
         return Math.min(0.92, Math.max(0.5, r));
       }
       function calcMid(){
-        const vhpx = vh();
+        const vhpx = (window.visualViewport?.height) ? Math.round(window.visualViewport.height) : vh();
         const gap = 22;
-        const avail = Math.max(0, vhpx - headerH() - gap);
+        const avail = Math.max(0, vhpx - (topInset() + headerH() - 0 + gap));
         // slightly below halfway of the usable area (exclude header)
         const r = (avail * 0.48) / vhpx;
         // keep within sensible bounds relative to min/max
