@@ -177,14 +177,14 @@
     .section-title{font-weight:600; margin:0 0 8px 0}
     .disclaimer{margin-left:auto; font-size:12px; color:var(--muted); white-space:normal; text-align:right}
     .cap-note{font-size:11px; color:var(--muted); margin-top:2px}
-    .settings{position:relative}
+    .settings{position:relative; z-index:999999}
     .settings > summary{list-style:none}
     .settings > summary::-webkit-details-marker{display:none}
     /* Smooth open/close for settings dropdown */
     .settings-menu{
       position:absolute; right:0; top:calc(100% + 8px);
       background:var(--white); border:1px solid var(--border); border-radius:12px;
-      box-shadow:0 8px 24px rgba(15,23,42,0.12); padding:10px; min-width:260px; z-index:99999;
+      box-shadow:0 8px 24px rgba(15,23,42,0.12); padding:10px; min-width:260px; z-index:999999;
       opacity:0; transform: translateY(-6px) scale(0.98); transform-origin: top right;
       transition: opacity .18s ease, transform .18s ease;
       pointer-events:none; /* keep rendered for smooth close */
@@ -245,7 +245,7 @@
     @media (max-width: 900px){
       /* Prevent page scroll; sheet and lists handle it. Fix header jump by pinning header. */
       html, body{ overflow:hidden; height:100%; overscroll-behavior:none }
-      header{ position:sticky; top:0; z-index:1500 }
+      header{ position:sticky; top:0; z-index:999999 }
       header{ flex-wrap:wrap; align-items:center }
       .disclaimer{ display:none }
       /* Remove padding so the map touches the edges and top under the header */
@@ -288,7 +288,11 @@
       .controls input, .controls select{ padding:6px 8px; font-size:14px }
       .controls button{ padding:7px 10px; font-size:14px }
       .tabs button{ padding:6px; font-size:12px }
-      .legend{ left:auto; right:12px; top:12px; bottom:auto; padding:6px 8px; z-index:900 }
+      .legend{ left:auto; right:12px; top:12px; bottom:auto; padding:4px 6px; z-index:900 }
+      .legend h4{ font-size:11px; margin:0 0 4px 0 }
+      .legend-section{ margin-top:4px }
+      .legend-item{ margin:2px 0; gap:6px }
+      .legend-header{ margin-bottom:4px; gap:6px }
       /* Home (onboarding) compact layout for iOS/small screens */  
       .onboard{ align-items:stretch; justify-content:flex-start; padding: max(12px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom)); height:100svh; overflow:auto }
       .onboard .title-hero{ font-size:clamp(36px, 8vw, 48px); margin:8px 0 10px 0 }
@@ -317,6 +321,23 @@
       #radius{ flex:0 0 76px }
       #healthy{ flex:0 0 110px }
     }
+    
+    /* Store search bar (PC only) */
+    .store-search-container{ margin-bottom:12px; display:block }
+    .store-search-input{ 
+      width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:12px; 
+      background:var(--white); font-size:14px; transition:border-color .2s ease;
+      box-sizing:border-box
+    }
+    .store-search-input:focus{ 
+      outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(90,198,138,0.1)
+    }
+    .store-search-input::placeholder{ color:var(--muted) }
+    
+    /* Mobile: hide store search bar */
+    @media (max-width: 900px) {
+      .store-search-container{ display:none !important }
+    }
   </style>
 </head>
 <body>
@@ -334,7 +355,7 @@
         </select>
         <select id="healthy">
           <option value="any">Any</option>
-          <option value="true">Known Healthy Only</option>
+          <option value="true">Only Known Healthy</option>
           <option value="false">Exclude Known Healthy</option>
         </select>
         <button id="searchBtn" class="btn btn-primary">Search</button>
@@ -402,6 +423,10 @@
           <button data-tab="tips">Tips</button>
         </div>
         <div id="tab-stores" class="tab active">
+          <!-- Store search bar (PC only) -->
+          <div class="store-search-container">
+            <input id="storeSearch" type="text" placeholder="Search for a specific store..." class="store-search-input"/>
+          </div>
           <div id="storesHeader">
             <div class="muted" id="storesSummary">0 results</div>
             <div class="pager">
@@ -420,10 +445,10 @@
             </div>
           </div>
           <details style="margin:4px 0 8px 0">
-            <summary class="muted" style="cursor:pointer">What is a “Known Healthy” store?</summary>
+            <summary class="muted" style="cursor:pointer">What is a "Known Healthy" store?</summary>
             <div class="tip info-scroll" style="margin-top:6px">
               <strong>Bodegas & Grocery Stores Receiving Recognition from Borough President's Office</strong><br/>
-              Each year, bodegas and grocery stores located in and around Action Center catchment areas participate in the Shop Healthy NYC program's Retail Challenge to increase (1) availability of healthier foods, such as low-sodium canned goods, healthier snacks and deli options; (2) promotion of healthier foods by posting Shop Healthy marketing materials for healthier foods and removing unhealthy advertising from the front door; and (3) visibility of healthier foods by placing them in more prominent locations, such as placing produce at the checkout counter or near the front entrance of the store, and water and other low-calorie drinks at eye-level. Stores that have implemented all of the program’s criteria at the conclusion of the Retail Challenge, and maintain them for at least one month, receive a recognition award from the Borough President's Office to acknowledge their efforts and dedication to make the healthy choice, the easier choice for their communities.<br/><br/>
+              Each year, bodegas and grocery stores located in and around Action Center catchment areas participate in the Shop Healthy NYC program's Retail Challenge to increase (1) availability of healthier foods, such as low-sodium canned goods, healthier snacks and deli options; (2) promotion of healthier foods by posting Shop Healthy marketing materials for healthier foods and removing unhealthy advertising from the front door; and (3) visibility of healthier foods by placing them in more prominent locations, such as placing produce at the checkout counter or near the front entrance of the store, and water and other low-calorie drinks at eye-level. Stores that have implemented all of the program's criteria at the conclusion of the Retail Challenge, and maintain them for at least one month, receive a recognition award from the Borough President's Office to acknowledge their efforts and dedication to make the healthy choice, the easier choice for their communities.<br/><br/>
               This is a manually compiled list of stores, which is based on data collected through implementation checklists; these are forms completed by Shop Healthy staff as part of store observations that track whether each criteria has been met. At this time, the program does not have processes in place to ensure that stores maintain the changes past one-month.
             </div>
           </details>
@@ -517,7 +542,7 @@
               <summary>Healthy Shopping</summary>
               <div class="tip-list">
                 <div class="tip"><strong>Shop a list:</strong> Write 5–10 items and stick to them.</div>
-                <div class="tip"><strong>Unit price:</strong> Compare price per oz/lb; bigger isn’t always cheaper.</div>
+                <div class="tip"><strong>Unit price:</strong> Compare price per oz/lb; bigger isn't always cheaper.</div>
                 <div class="tip"><strong>Frozen produce:</strong> Often cheaper, less waste, same nutrients.</div>
                 <div class="tip"><strong>Store brands:</strong> Choose generic for rice, pasta, milk, spices.</div>
                 <div class="tip"><strong>Seasonal buys:</strong> In‑season fruit/veg are cheaper and taste better.</div>
@@ -530,7 +555,7 @@
                 <div class="tip"><strong>Cook once, eat twice:</strong> Double rice/beans/chicken for the week.</div>
                 <div class="tip"><strong>Base + toppings:</strong> Prep rice and rotate proteins/sauces daily.</div>
                 <div class="tip"><strong>Freeze extras:</strong> Soup, chili, cooked meat freeze well; label dates.</div>
-                <div class="tip"><strong>Leftover refresh:</strong> Add eggs/tortilla to transform last night’s meal.</div>
+                <div class="tip"><strong>Leftover refresh:</strong> Add eggs/tortilla to transform last night's meal.</div>
                 <div class="tip"><strong>Snack boxes:</strong> Portion nuts, fruit, yogurt for grab‑and‑go.</div>
               </div>
             </details>
@@ -605,7 +630,7 @@
               <summary>SNAP & Pantry Tips</summary>
               <div class="tip-list">
                 <div class="tip"><strong>Staples first:</strong> Beans, rice, oats, eggs, frozen veg stretch budgets.</div>
-                <div class="tip"><strong>Pantry nights:</strong> Plan 1–2 “pantry meals” weekly to use what you have.</div>
+                <div class="tip"><strong>Pantry nights:</strong> Plan 1–2 "pantry meals" weekly to use what you have.</div>
                 <div class="tip"><strong>Bulk smart:</strong> Only buy bulk if you can store it and will use it.</div>
                 <div class="tip"><strong>Local pantries:</strong> Ask for produce/meat days; arrive early.</div>
                 <div class="tip"><strong>Double‑duty foods:</strong> Buy items that work across breakfast/lunch/dinner.</div>
@@ -614,7 +639,7 @@
             <details class="tip-cat">
               <summary>Spending Less on Food</summary>
               <div class="tip-list">
-                <div class="tip"><strong>Unit price:</strong> Compare price per ounce; bigger isn’t always cheaper on brand-name bundles.</div>
+                <div class="tip"><strong>Unit price:</strong> Compare price per ounce; bigger isn't always cheaper on brand-name bundles.</div>
                 <div class="tip"><strong>Staples:</strong> Oats, rice, beans, eggs, frozen veg, canned fish stretch meals for less.</div>
                 <div class="tip"><strong>Plan 3 meals:</strong> Rotate 2–3 cheap, filling meals each week to cut impulse buys.</div>
                 <div class="tip"><strong>Store brands:</strong> Buy generic for basics (rice, pasta, milk, spices) with similar quality.</div>
@@ -625,23 +650,23 @@
             <details class="tip-cat">
               <summary>Manipulative Sales Tactics</summary>
               <div class="tip-list">
-                <div class="tip"><strong>Bundle trap:</strong> Value meals add sides/soda you didn’t want. Order items separately.</div>
+                <div class="tip"><strong>Bundle trap:</strong> Value meals add sides/soda you didn't want. Order items separately.</div>
                 <div class="tip"><strong>Eye-level tricks:</strong> High‑calorie snacks live at eye level. Scan lower shelves for better options.</div>
-                <div class="tip"><strong>BOGO bait:</strong> “Buy one get one” doubles spend and calories; only buy if you needed one.</div>
-                <div class="tip"><strong>Limited time:</strong> “Today only” signs push urgency. Pause and check your list first.</div>
+                <div class="tip"><strong>BOGO bait:</strong> "Buy one get one" doubles spend and calories; only buy if you needed one.</div>
+                <div class="tip"><strong>Limited time:</strong> "Today only" signs push urgency. Pause and check your list first.</div>
                 <div class="tip"><strong>Checkout gauntlet:</strong> Avoid the candy rack by using self‑checkout when possible.</div>
-                <div class="tip"><strong>Fancy packaging:</strong> “Protein,” “keto,” or “natural” labels don’t guarantee healthy.</div>
+                <div class="tip"><strong>Fancy packaging:</strong> "Protein," "keto," or "natural" labels don't guarantee healthy.</div>
               </div>
             </details>
             <details class="tip-cat">
               <summary>Common Misconceptions</summary>
               <div class="tip-list">
-                <div class="tip"><strong>“Healthy is expensive”:</strong> Frozen veg, eggs, beans, and oats are low‑cost nutrient staples.</div>
-                <div class="tip"><strong>“Salads are always healthy”:</strong> Dressings/toppings can double calories; choose light dressing, protein.</div>
-                <div class="tip"><strong>“Carbs are bad”:</strong> Whole grains and beans help fullness and budget; watch portions, not all carbs.</div>
-                <div class="tip"><strong>“Snacking ruins progress”:</strong> Planned high‑protein snacks can prevent overeating later.</div>
-                <div class="tip"><strong>“All fast food is bad”:</strong> Grilled chicken, small chili, baked potato, or side salads can work.</div>
-                <div class="tip"><strong>“You need supplements”:</strong> Food first; only add vitamins if a clinician recommends.</div>
+                <div class="tip"><strong>"Healthy is expensive":</strong> Frozen veg, eggs, beans, and oats are low‑cost nutrient staples.</div>
+                <div class="tip"><strong>"Salads are always healthy":</strong> Dressings/toppings can double calories; choose light dressing, protein.</div>
+                <div class="tip"><strong>"Carbs are bad":</strong> Whole grains and beans help fullness and budget; watch portions, not all carbs.</div>
+                <div class="tip"><strong>"Snacking ruins progress":</strong> Planned high‑protein snacks can prevent overeating later.</div>
+                <div class="tip"><strong>"All fast food is bad":</strong> Grilled chicken, small chili, baked potato, or side salads can work.</div>
+                <div class="tip"><strong>"You need supplements":</strong> Food first; only add vitamins if a clinician recommends.</div>
               </div>
             </details>
           </div>
@@ -776,6 +801,12 @@
       const pageInfo = document.getElementById('pageInfo');
       list.innerHTML = '';
       fullResults = Array.isArray(items) ? items : [];
+      
+      // Update originalFullResults when new data comes in (but only if it's not from search filtering)
+      if (!storeSearchTerm.trim() && Array.isArray(items)) {
+        originalFullResults = [...items];
+      }
+      
       // Apply sorting before pagination
       const sortSel = document.getElementById('sortBy');
       const sortBy = sortSel ? sortSel.value : 'distance';
@@ -1284,6 +1315,18 @@
 
     let myLocationMarker = null;
     document.getElementById('locBtn').addEventListener('click', () => {
+      // Clear store search when using location
+      const storeSearchInput = document.getElementById('storeSearch');
+      if (storeSearchInput) {
+        storeSearchInput.value = '';
+        storeSearchTerm = '';
+        filteredStoreResults = [];
+        // Reset to show all original results
+        if (originalFullResults.length > 0) {
+          renderList(originalFullResults);
+        }
+      }
+      
       navigator.geolocation.getCurrentPosition(pos => {
         const { latitude, longitude } = pos.coords;
         map.setView([latitude, longitude], DEFAULT_ZOOM);
@@ -1297,6 +1340,18 @@
     });
 
     document.getElementById('searchBtn').addEventListener('click', async () => {
+      // Clear store search when performing new location search
+      const storeSearchInput = document.getElementById('storeSearch');
+      if (storeSearchInput) {
+        storeSearchInput.value = '';
+        storeSearchTerm = '';
+        filteredStoreResults = [];
+        // Reset to show all original results
+        if (originalFullResults.length > 0) {
+          renderList(originalFullResults);
+        }
+      }
+      
       const zip = document.getElementById('zip').value.trim();
       const [lat, lng] = await zipToLatLng(zip);
       currentLat = lat; currentLng = lng;
@@ -1375,9 +1430,31 @@
 
     // Live re-query on filter changes
     document.getElementById('radius').addEventListener('change', () => {
+      // Clear store search when changing filters
+      const storeSearchInput = document.getElementById('storeSearch');
+      if (storeSearchInput) {
+        storeSearchInput.value = '';
+        storeSearchTerm = '';
+        filteredStoreResults = [];
+        // Reset to show all original results
+        if (originalFullResults.length > 0) {
+          renderList(originalFullResults);
+        }
+      }
       queryStores(currentLat, currentLng);
     });
     document.getElementById('healthy').addEventListener('change', () => {
+      // Clear store search when changing filters
+      const storeSearchInput = document.getElementById('storeSearch');
+      if (storeSearchInput) {
+        storeSearchInput.value = '';
+        storeSearchTerm = '';
+        filteredStoreResults = [];
+        // Reset to show all original results
+        if (originalFullResults.length > 0) {
+          renderList(originalFullResults);
+        }
+      }
       queryStores(currentLat, currentLng);
     });
     document.getElementById('sortBy').addEventListener('change', () => {
@@ -1875,6 +1952,74 @@
       saveTracker(state); renderTracker();
     });
     renderTracker();
+
+    // Store search functionality
+    let storeSearchTerm = '';
+    let filteredStoreResults = [];
+    let originalFullResults = []; // Store the original, unfiltered results
+    
+    function filterStoresBySearch(searchTerm) {
+      if (!searchTerm.trim()) {
+        // When search is cleared, restore the original results
+        filteredStoreResults = [...originalFullResults];
+        return;
+      }
+      
+      const term = searchTerm.toLowerCase().trim();
+      filteredStoreResults = originalFullResults.filter(store => 
+        store.name.toLowerCase().includes(term) ||
+        store.address.toLowerCase().includes(term) ||
+        store.city.toLowerCase().includes(term) ||
+        store.storeType.toLowerCase().includes(term) ||
+        store.zip.toLowerCase().includes(term)
+      );
+    }
+    
+    function updateStoreListWithSearch() {
+      if (storeSearchTerm.trim()) {
+        // Use filtered results for display
+        renderList(filteredStoreResults);
+      } else {
+        // Use original, unfiltered results
+        renderList(originalFullResults);
+      }
+    }
+    
+    // Initialize store search
+    document.addEventListener('DOMContentLoaded', function() {
+      const storeSearchInput = document.getElementById('storeSearch');
+      if (storeSearchInput) {
+        storeSearchInput.addEventListener('input', function(e) {
+          storeSearchTerm = e.target.value;
+          filterStoresBySearch(storeSearchTerm);
+          currentPage = 1; // Reset to first page when searching
+          updateStoreListWithSearch();
+        });
+        
+        // Clear search when switching tabs or performing new searches
+        storeSearchInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape') {
+            storeSearchInput.value = '';
+            storeSearchTerm = '';
+            filteredStoreResults = [];
+            currentPage = 1;
+            updateStoreListWithSearch();
+          }
+        });
+      }
+    });
+    
+    // Override the existing updateStoreList function to handle search
+    const originalUpdateStoreList = window.updateStoreList;
+    window.updateStoreList = function() {
+      if (storeSearchTerm.trim()) {
+        updateStoreListWithSearch();
+      } else {
+        if (originalUpdateStoreList) {
+          originalUpdateStoreList();
+        }
+      }
+    };
   </script>
 </body>
 </html>
