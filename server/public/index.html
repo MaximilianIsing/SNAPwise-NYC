@@ -1380,8 +1380,10 @@
         const bg = overlay.querySelector('.bg-fruit');
         // Steady stream: spawn one fruit at a time with random intervals
         const MAX_FRUITS = 80; // cap existing nodes
-        const MIN_INTERVAL = 100; // ms
-        const MAX_INTERVAL = 400; // ms
+        // Calculate the width of the viewport in inches (for fruit spawn timing)
+        const INCH_WIDTH = window.innerWidth / (window.devicePixelRatio * 96);
+        const MIN_INTERVAL = Math.floor((100*16)/INCH_WIDTH); // ms
+        const MAX_INTERVAL = MIN_INTERVAL + 200; // ms
         function spawnFruit(){
           if (!bg) return false;
           // If at cap, skip this tick (avoid popping existing fruit)
