@@ -178,6 +178,16 @@
     .disclaimer{margin-left:auto; font-size:12px; color:var(--muted); white-space:normal; text-align:right}
     .cap-note{font-size:11px; color:var(--muted); margin-top:2px}
     .settings{position:relative; z-index:999999}
+    
+    /* Mobile settings - hidden by default, shown only on mobile */
+    .settings-mobile{display:none; position:fixed; top:12px; right:12px; z-index:999999999}
+    .settings-mobile .settings-menu{position:fixed; right:20px; top:calc(var(--header-h, 64px) - 75px); z-index:999999999}
+    .settings-mobile.is-open .settings-menu{ opacity:1; transform: translateY(0) scale(1); pointer-events:auto }
+    
+    /* Mobile settings inherit the same styling as header settings */
+    .settings-mobile > summary{list-style:none}
+    .settings-mobile > summary::-webkit-details-marker{display:none}
+    
     .settings > summary{list-style:none}
     .settings > summary::-webkit-details-marker{display:none}
     /* Smooth open/close for settings dropdown */
@@ -268,6 +278,12 @@
       header h1{ order:1 }
       header .settings{ order:2; margin-left:auto }
       header .controls{ order:3; flex: 1 1 100%; display:flex; flex-wrap:wrap; gap:6px }
+      
+      /* Mobile: Hide header settings, show mobile settings */
+      header .settings{ display:none }
+      .settings-mobile{ display:block }
+      
+
       /* Fit ZIP, radius, healthy on one line */
       #zip{ flex:1 1 160px; min-width:0 }
       #radius{ flex:0 0 92px }
@@ -408,6 +424,54 @@
         </div>
       </details>
     </header>
+    
+    <!-- Mobile-only settings panel - positioned outside header for independent layering -->
+    <details class="settings-mobile" id="settings-mobile">
+      <summary class="btn btn-primary btn-icon" title="Settings"><img src="media/Settings.png" alt="Settings" style="width:18px; height:18px"/></summary>
+      <div class="settings-menu">
+        <div style="position:absolute; top:6px; right:10px; font-size:10px; font-style:italic; color:var(--muted); pointer-events:none">v1.05</div>
+        <div class="muted" style="font-weight:600; margin-bottom:6px; text-align:center">Settings</div>
+        <div class="settings-row">
+          <div class="theme-toggle" style="flex:0 0 auto; justify-content:flex-start">
+            <img src="media/Sun.png" alt="Light"/>
+            <label class="theme-switch" for="toggleDarkMobile" style="margin:0 4px">
+              <input id="toggleDarkMobile" type="checkbox" />
+              <span class="theme-knob"></span>
+            </label>
+            <img src="media/Moon.png" alt="Dark"/>
+          </div>
+          <label class="units-select" style="display:flex; align-items:center; gap:6px; white-space:nowrap">
+            <span class="muted" style="font-size:12px">Units</span>
+            <select id="unitSystemMobile">
+              <option value="mi">mi</option>
+              <option value="km">km</option>
+            </select>
+          </label>
+        </div>
+        <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:4px">
+          <div class="muted" style="font-size:12px; text-align:center">Coach Response Length</div>
+          <div class="btn-group" id="respLenGroupMobile" role="group" aria-label="Coach response length" style="display:flex; width:90%; margin:0 auto; border:1px solid var(--border); border-radius:12px; overflow:hidden; justify-content:center">
+            <button type="button" data-val="concise" class="btn" style="flex:1 1 0; border:none; border-right:1px solid var(--border); border-radius:0">Concise</button>
+            <button type="button" data-val="default" class="btn" style="flex:1 1 0; border:none; border-right:1px solid var(--border); border-radius:0">Default</button>
+            <button type="button" data-val="comprehensive" class="btn" style="flex:1 1 0; border:none; border-radius:0">Extensize</button>
+          </div>
+        </div>
+        <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:6px">
+          <div class="muted" style="font-size:12px; text-align:center">Max Store Results</div>
+          <div style="display:flex; justify-content:center">
+            <select id="maxResultsMobile">
+              <option value="100">100</option>
+              <option value="200">200</option>
+              <option value="500">500</option>
+              <option value="Unlimited">Unlimited</option>
+            </select>
+          </div>
+          <div style="text-align:center; font-size:10px; font-style:italic; color:var(--muted); margin-top:2px">*Unlimited is experimental and not recommended</div>
+        </div>
+        <button class="btn" id="returnHomeMobile" style="width:100%; justify-content:center; margin-top:12px">Return to Home Screen</button>
+      </div>
+    </details>
+    
     <main>
       <div id="map">
         <div class="legend" id="legend">
@@ -2020,6 +2084,145 @@
         }
       }
     };
+    
+    // Sync settings between header and mobile versions
+    document.addEventListener('DOMContentLoaded', function() {
+      const headerSettings = document.getElementById('settings');
+      const mobileSettings = document.getElementById('settings-mobile');
+      
+      if (headerSettings && mobileSettings) {
+        // Ensure mobile settings stays open so the menu DOM remains mounted (needed for transitions)
+        function ensureMobileOpenAttr(){ try{ if (!mobileSettings.open) mobileSettings.open = true; } catch{} }
+        ensureMobileOpenAttr();
+        
+        // Add click handler to mobile settings summary (same as header)
+        const mobileSummary = mobileSettings.querySelector('summary');
+        if (mobileSummary) {
+          mobileSummary.addEventListener('click', (e) => {
+            e.preventDefault();
+            ensureMobileOpenAttr();
+            mobileSettings.classList.toggle('is-open');
+          });
+        }
+        
+        // Close mobile settings when clicking outside
+        document.addEventListener('click', (e) => {
+          try{
+            const target = /** @type {HTMLElement} */(e.target);
+            if (!target) return;
+            if (mobileSettings.contains(target)) return;
+            mobileSettings.classList.remove('is-open');
+            ensureMobileOpenAttr();
+          } catch {}
+        });
+        
+        // Close mobile settings on Escape
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape'){
+            mobileSettings.classList.remove('is-open');
+            ensureMobileOpenAttr();
+          }
+        });
+        
+        // Sync open/close state
+        headerSettings.addEventListener('toggle', function() {
+          if (headerSettings.open !== mobileSettings.open) {
+            mobileSettings.open = headerSettings.open;
+          }
+        });
+        
+        mobileSettings.addEventListener('toggle', function() {
+          if (mobileSettings.open !== headerSettings.open) {
+            headerSettings.open = mobileSettings.open;
+          }
+        });
+        
+        // Sync form values between header and mobile
+        const syncFormValues = () => {
+          // Sync theme toggle
+          const headerToggle = headerSettings.querySelector('#toggleDark');
+          const mobileToggle = mobileSettings.querySelector('#toggleDarkMobile');
+          if (headerToggle && mobileToggle) {
+            mobileToggle.checked = headerToggle.checked;
+          }
+          
+          // Sync unit system
+          const headerUnit = headerSettings.querySelector('#unitSystem');
+          const mobileUnit = mobileSettings.querySelector('#unitSystemMobile');
+          if (headerUnit && mobileUnit) {
+            mobileUnit.value = headerUnit.value;
+          }
+          
+          // Sync max results
+          const headerMax = headerSettings.querySelector('#maxResults');
+          const mobileMax = mobileSettings.querySelector('#maxResultsMobile');
+          if (headerMax && mobileMax) {
+            mobileMax.value = headerMax.value;
+          }
+        };
+        
+        // Sync from mobile to header
+        const syncFromMobile = () => {
+          // Sync theme toggle
+          const headerToggle = headerSettings.querySelector('#toggleDark');
+          const mobileToggle = mobileSettings.querySelector('#toggleDarkMobile');
+          if (headerToggle && mobileToggle) {
+            headerToggle.checked = mobileToggle.checked;
+            // Trigger the theme change event
+            headerToggle.dispatchEvent(new Event('change'));
+          }
+          
+          // Sync unit system
+          const headerUnit = headerSettings.querySelector('#unitSystem');
+          const mobileUnit = mobileSettings.querySelector('#unitSystemMobile');
+          if (headerUnit && mobileUnit) {
+            headerUnit.value = mobileUnit.value;
+            headerUnit.dispatchEvent(new Event('change'));
+          }
+          
+          // Sync max results
+          const headerMax = headerSettings.querySelector('#maxResults');
+          const mobileMax = mobileSettings.querySelector('#maxResultsMobile');
+          if (headerMax && mobileMax) {
+            headerMax.value = mobileMax.value;
+            headerMax.dispatchEvent(new Event('change'));
+          }
+        };
+        
+        // Initial sync from header to mobile
+        syncFormValues();
+        
+        // Sync on header changes
+        headerSettings.addEventListener('change', syncFormValues);
+        
+        // Sync on mobile changes and trigger header events
+        mobileSettings.addEventListener('change', syncFromMobile);
+        
+        // Handle mobile return home button
+        const mobileReturnHome = mobileSettings.querySelector('#returnHomeMobile');
+        if (mobileReturnHome) {
+          mobileReturnHome.addEventListener('click', function() {
+            const headerReturnHome = headerSettings.querySelector('#returnHome');
+            if (headerReturnHome) {
+              headerReturnHome.click();
+            }
+          });
+        }
+        
+        // Handle mobile response length buttons
+        const mobileRespButtons = mobileSettings.querySelectorAll('#respLenGroupMobile button');
+        mobileRespButtons.forEach(button => {
+          button.addEventListener('click', function() {
+            const headerRespButtons = headerSettings.querySelectorAll('#respLenGroup button');
+            headerRespButtons.forEach(headerBtn => {
+              if (headerBtn.dataset.val === button.dataset.val) {
+                headerBtn.click();
+              }
+            });
+          });
+        });
+      }
+    });
   </script>
 </body>
 </html>
