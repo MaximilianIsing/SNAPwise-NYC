@@ -162,12 +162,6 @@
     .chat-log::-webkit-scrollbar-thumb:hover,
     .tips-scroll::-webkit-scrollbar-thumb:hover,
     #tab-tracker::-webkit-scrollbar-thumb:hover{ background: var(--sb-thumb-hover) }
-    /* iOS-only overlay scrollbar for tab contents (visible in light and dark) */
-    .ios-csb{ position:relative }
-    .ios-csb-track{ position:absolute; top:2px; right:2px; bottom:2px; width:4px; border-radius:3px; background:transparent; pointer-events:none; opacity:0; transition:opacity .15s ease; z-index:3 }
-    .ios-csb-thumb{ position:absolute; right:0; width:100%; border-radius:3px; background: rgba(60,72,88,0.55) }
-    body.dark .ios-csb-thumb{ background: rgba(190,200,215,0.75) }
-    .ios-csb-track.visible{ opacity:1 }
     /* Slider label alignment helpers */
     .range-wrap{position:relative; width:90%; margin:0 auto}
     .range-wrap input[type=range]{width:100%; display:block; accent-color: var(--primary)}
@@ -327,6 +321,7 @@
       <details class="settings" id="settings">
         <summary class="btn btn-primary btn-icon" title="Settings"><img src="media/Settings.png" alt="Settings" style="width:18px; height:18px"/></summary>
         <div class="settings-menu">
+          <div style="position:absolute; top:6px; right:10px; font-size:10px; font-style:italic; color:var(--muted); pointer-events:none">v1.01</div>
           <div class="muted" style="font-weight:600; margin-bottom:6px; text-align:center">Settings</div>
           <div class="settings-row">
             <div class="theme-toggle" style="flex:0 0 auto; justify-content:flex-start">
@@ -659,18 +654,6 @@
     }
     updateMapTheme();
     renderLegend();
-    // iOS overlay scrollbar for tab contents (both themes)
-    (function(){
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      if (!isIOS) return;
-      const SELECTORS = ['#list', '.chat-log', '.tips-scroll', '#tab-tracker'];
-      function enhance(el){ if (!el || el._iosCsb) return; el.classList.add('ios-csb'); const track=document.createElement('div'); track.className='ios-csb-track'; const thumb=document.createElement('div'); thumb.className='ios-csb-thumb'; track.appendChild(thumb); el.appendChild(track); let hideTimer=null; function update(){ const sh=el.scrollHeight, ch=el.clientHeight, st=el.scrollTop; if (sh<=ch+1){ track.style.display='none'; return; } track.style.display='block'; const ratio=ch/sh; const th=Math.max(22, Math.round(ch*ratio)); const maxTop=ch-th-4; const maxScroll=Math.max(1, sh-ch); const top=Math.round((st/maxScroll)*maxTop); thumb.style.height=th+'px'; thumb.style.top=(2+top)+'px'; }
-        function show(){ track.classList.add('visible'); if (hideTimer) clearTimeout(hideTimer); hideTimer=setTimeout(()=>track.classList.remove('visible'), 700); }
-        el.addEventListener('scroll', ()=>{ update(); show(); }, { passive:true }); window.addEventListener('resize', update); const ro=new ResizeObserver(update); try{ ro.observe(el);}catch{} el._iosCsb={update}; setTimeout(update,0); }
-      function init(){ SELECTORS.forEach(sel=>document.querySelectorAll(sel).forEach(enhance)); }
-      init();
-      document.addEventListener('click', (e)=>{ const t=e.target; if (t && t.matches('.tabs button')) setTimeout(init,0); });
-    })();
     // Ensure map resizes correctly on layout/viewport changes
     (function(){
       let resizeTimer = null;
