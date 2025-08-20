@@ -218,9 +218,19 @@ app.post('/chat', async (req, res) => {
 });
 
 async function start() {
-  const candidates = [
-    path.resolve(__dirname, '..', 'NYC Food Stamp Stores.csv'),
-  ];
+  /** Build candidate CSV paths from env and common locations */
+  const candidates = [];
+  const envCsv = process.env.STORES_CSV;
+  if (envCsv) {
+    // Try as absolute, relative to server/, and relative to repo root
+    if (path.isAbsolute(envCsv)) candidates.push(envCsv);
+    candidates.push(path.resolve(__dirname, envCsv));
+    candidates.push(path.resolve(__dirname, '..', envCsv));
+  }
+  // Common defaults
+  candidates.push(path.resolve(__dirname, '..', 'NYC Food Stamp Stores.csv'));
+  candidates.push(path.resolve(__dirname, '..', 'source csv', 'NYC Food Stamp Stores.csv'));
+  candidates.push(path.resolve(__dirname, 'NYC Food Stamp Stores.csv'));
   const csvPath = candidates.find((p) => fs.existsSync(p));
   try {
     if (!csvPath) {
