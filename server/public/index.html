@@ -254,7 +254,7 @@
       #map{ height: calc(100dvh - var(--header-h, 64px)); margin-top:0; width:100vw; border:none; border-radius:0; box-shadow:none }
       /* Bottom sheet styling */
       /* Fallback height matches calcMid(): 0.48 * (viewport - header - 22px) */
-      .panel{ position:fixed; left:0; right:0; bottom:0; margin:0; border-radius:16px 16px 0 0; height: var(--sheet-height, calc(0.48 * (100dvh - var(--header-h, 64px) - 22px))); max-height:none; overflow:auto; -webkit-overflow-scrolling:touch; z-index:1600; box-shadow:0 -6px 20px rgba(15,23,42,0.12); transition: height .25s ease }
+      .panel{ position:fixed; left:0; right:0; bottom:0; margin:0; border-radius:16px 16px 0 0; height: var(--sheet-height, calc(0.48 * (100dvh - var(--header-h, 64px) - 22px))); max-height:none; overflow:auto; -webkit-overflow-scrolling:touch; z-index:9999990; box-shadow:0 -6px 20px rgba(15,23,42,0.12); transition: height .25s ease }
       
       .tabs{ position:sticky; top:0; background:var(--white); z-index:2 }
       /* Larger, consistent grab handle */
