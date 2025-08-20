@@ -105,6 +105,15 @@
     .shape.circle{border-radius:50%; border:2px solid #64748B}
     .shape.diamond{width:10px; height:10px; border:2px solid #64748B; transform:rotate(45deg)}
     .diamond-shape{display:block; transform:rotate(45deg); border-radius:4px}
+    /* Legend collapsible */
+    .legend.collapsed #legendBody{ display:none }
+    .legend.collapsed #legendModeControls{ display:none }
+    .legend.collapsed h4{ margin:0 }
+    .legend-toggle{ background:transparent; border:none; padding:0; width:20px; height:20px; cursor:pointer; color:var(--muted) }
+    .legend-toggle::after{ content:'▾'; font-size:14px; line-height:1 }
+    .legend.collapsed .legend-toggle::after{ content:'▸' }
+    .legend-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px }
+    .legend.collapsed .legend-header{ margin-bottom:0 }
     .btn{background:var(--white); color:var(--ink); border:1px solid var(--border); border-radius:12px; padding:10px 14px; cursor:pointer; transition:background .15s ease, box-shadow .15s ease; text-decoration:none; display:inline-flex; align-items:center; gap:6px}
     .btn:hover{box-shadow:0 2px 6px rgba(15,23,42,0.08)}
     .btn-primary{background:var(--primary); color:#fff; border-color:transparent}
@@ -181,6 +190,51 @@
     body.dark .leaflet-popup-content-wrapper{ background:var(--white); color:var(--ink); border:1px solid var(--border) }
     body.dark .leaflet-popup-tip{ background:var(--white); border:1px solid var(--border) }
     body.dark .leaflet-popup-close-button{ color:var(--ink) }
+    /* --- Responsive layout --- */
+    /* Large tablets: narrow the sidebar */
+    @media (max-width: 1200px){
+      main{ grid-template-columns: 1fr 360px; }
+    }
+    /* Tablets/phones: stack layout, ensure map remains visible */
+    @media (max-width: 900px){
+      header{ flex-wrap:wrap; align-items:center }
+      .disclaimer{ display:none }
+      main{ grid-template-columns: 1fr; grid-template-rows: auto auto }
+      #map{ height: 60vh }
+      .panel{ height:auto; max-height:40vh }
+      .tabs{ position:sticky; top:0; background:var(--white); z-index:2 }
+      /* Keep settings on first row, right aligned with title; move controls below */
+      header .logo{ order:0 }
+      header h1{ order:1 }
+      header .settings{ order:2; margin-left:auto }
+      header .controls{ order:3; flex: 1 1 100%; display:flex; flex-wrap:wrap; gap:6px }
+      /* Fit ZIP, radius, healthy on one line */
+      #zip{ flex:1 1 160px; min-width:0 }
+      #radius{ flex:0 0 92px }
+      #healthy{ flex:0 0 150px }
+      /* Buttons can wrap below */
+      #searchBtn, #locBtn{ flex:1 1 auto }
+    }
+    /* Small phones: compact controls and tabs */
+    @media (max-width: 600px){
+      header{ padding:10px 12px }
+      header .logo{ width:24px; height:24px }
+      header h1{ font-size:18px }
+      /* Override generic flex so the first row fits */
+      #zip{ flex:1 1 150px }
+      #radius{ flex:0 0 88px }
+      #healthy{ flex:0 0 140px }
+      .controls button{ padding:8px 12px }
+      .tabs button{ padding:6px; font-size:12px }
+      .legend{ left:8px; bottom:8px; padding:6px 8px }
+      .onboard .title-hero{ font-size:42px }
+      .onboard .logo-wrap img{ width:80px; height:80px }
+      .onboard .card{ width:min(96vw, 520px); padding:16px }
+      .grid2{ grid-template-columns: 1fr }
+      .chat-controls{ flex-wrap:wrap }
+      .chat-controls input{ flex:1 1 100% }
+      .chat-controls .btn{ flex:1 1 auto }
+    }
   </style>
 </head>
 <body>
@@ -540,6 +594,16 @@
     }
     updateMapTheme();
     renderLegend();
+    // Ensure map resizes correctly on layout/viewport changes
+    (function(){
+      let resizeTimer = null;
+      function invalidate(){ try{ map.invalidateSize(); } catch {} }
+      function schedule(){ try{ if (resizeTimer) clearTimeout(resizeTimer); resizeTimer = setTimeout(invalidate, 200); } catch {} }
+      window.addEventListener('resize', schedule);
+      window.addEventListener('orientationchange', schedule);
+      // Also invalidate once after initial render to account for fonts/assets loading
+      setTimeout(invalidate, 400);
+    })();
 
     const markers = [];
     let currentHighlightedMarker = null;
@@ -775,13 +839,17 @@
       }
       const btnTypeCls = mode === 'type' ? 'btn btn-primary' : 'btn';
       const btnAiCls = mode === 'ai' ? 'btn btn-primary' : 'btn';
+      // Respect persisted collapsed state before rendering
+      const isCollapsed = (() => { try{ return localStorage.getItem('legend_collapsed') === '1'; } catch { return false; } })();
+      try{ root.classList.toggle('collapsed', isCollapsed); } catch {}
       root.innerHTML = `
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px">
+        <div class="legend-header">
           <h4 style="margin:0; font-size:12px; font-weight:700; color:var(--muted)">Map Key</h4>
-          <div style="display:flex; gap:6px">
+          <div style="display:flex; align-items:center; gap:6px" id="legendModeControls">
             <button id="legendType" class="${btnTypeCls}" style="padding:4px 8px; font-size:12px">Store Type</button>
             <button id="legendAI" class="${btnAiCls}" style="padding:4px 8px; font-size:12px">Rating</button>
           </div>
+          <button id="legendToggle" class="legend-toggle" title="Toggle map key" aria-label="Toggle map key" style="margin-left:0px;"></button>
         </div>
         <div id="legendBody"></div>
       `;
@@ -820,8 +888,16 @@
       }
       const btnType = root.querySelector('#legendType');
       const btnAI = root.querySelector('#legendAI');
+      const btnToggle = root.querySelector('#legendToggle');
       if (btnType) btnType.addEventListener('click', () => { localStorage.setItem('legend_mode','type'); renderLegend(); recolorMarkers(); });
       if (btnAI) btnAI.addEventListener('click', () => { localStorage.setItem('legend_mode','ai'); renderLegend(); recolorMarkers(); });
+      if (btnToggle) btnToggle.addEventListener('click', () => {
+        try{
+          const collapsed = root.classList.toggle('collapsed');
+          localStorage.setItem('legend_collapsed', collapsed ? '1' : '0');
+          renderLegend();
+        } catch {}
+      });
     }
 
     // Escape text for safe use in HTML attribute context (e.g., title="...")
