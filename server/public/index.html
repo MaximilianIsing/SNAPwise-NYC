@@ -211,12 +211,12 @@
           <div class="muted" style="font-weight:600; margin-bottom:6px; text-align:center">Settings</div>
           <div class="settings-row">
             <div class="theme-toggle" style="flex:0 0 auto; justify-content:flex-start">
-              <img src="media/sun.png" alt="Light"/>
+              <img src="media/Sun.png" alt="Light"/>
               <label class="theme-switch" for="toggleDark" style="margin:0 4px">
                 <input id="toggleDark" type="checkbox" />
                 <span class="theme-knob"></span>
               </label>
-              <img src="media/moon.png" alt="Dark"/>
+              <img src="media/Moon.png" alt="Dark"/>
             </div>
             <label class="units-select" style="display:flex; align-items:center; gap:6px; white-space:nowrap">
               <span class="muted" style="font-size:12px">Units</span>
@@ -841,7 +841,7 @@
 
     function buildPopupHtml(s){
       const popupTitle = s.isHealthyStore
-        ? `<img src="media/check.png" class="known-healthy" data-tip="Known Healthy Store" alt="Healthy" style="width:14px; height:14px; vertical-align:middle; margin-right:4px"/><strong>${s.name}</strong>`
+        ? `<img src="media/Check.png" class="known-healthy" data-tip="Known Healthy Store" alt="Healthy" style="width:14px; height:14px; vertical-align:middle; margin-right:4px"/><strong>${s.name}</strong>`
         : `<strong>${s.name}</strong>`;
       const timeText = formatWalkTime(s.distance_m);
       const score = (typeof s.aiScore === 'number' && isFinite(s.aiScore)) ? Math.max(1, Math.min(10, Math.round(s.aiScore))) : null;
@@ -856,7 +856,7 @@
       items.forEach(s => {
         const color = getMarkerColorForStore(s);
         const popupTitle = s.isHealthyStore
-          ? `<img src="media/check.png" class="known-healthy" data-tip="Known Healthy Store" alt="Healthy" style="width:14px; height:14px; vertical-align:middle; margin-right:4px"/><strong>${s.name}</strong>`
+          ? `<img src="media/Check.png" class="known-healthy" data-tip="Known Healthy Store" alt="Healthy" style="width:14px; height:14px; vertical-align:middle; margin-right:4px"/><strong>${s.name}</strong>`
           : `<strong>${s.name}</strong>`;
         const timeText = formatWalkTime(s.distance_m);
         const score = (typeof s.aiScore === 'number' && isFinite(s.aiScore)) ? Math.max(1, Math.min(10, Math.round(s.aiScore))) : null;
