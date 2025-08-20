@@ -127,6 +127,38 @@
     .icon-btn{background:transparent; border:none; padding:0 4px; font-size:12px; line-height:1; cursor:pointer; vertical-align:baseline}
     .icon-btn:hover{background:var(--bg)}
     input,select,textarea{padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:var(--white)}
+    /* Custom theme-aware scrollbars for all devices */
+    :root{ --sb-thumb: rgba(100,116,139,0.55); --sb-thumb-hover: rgba(100,116,139,0.8); --sb-track: transparent }
+    body.dark{ --sb-thumb: rgba(148,163,184,0.65); --sb-thumb-hover: rgba(203,213,225,0.85); --sb-track: transparent }
+    .panel, #list, .chat-log, .tips-scroll, #tab-tracker{
+      -webkit-overflow-scrolling: touch; /* iOS momentum */
+      /* Let scrollbar overlay content (no reserved gutter) to avoid cutting layout */
+      /* scrollbar-gutter: stable both-edges; */
+      scrollbar-width: thin; /* Firefox */
+      scrollbar-color: var(--sb-thumb) transparent;
+    }
+    .panel::-webkit-scrollbar,
+    #list::-webkit-scrollbar,
+    .chat-log::-webkit-scrollbar,
+    .tips-scroll::-webkit-scrollbar,
+    #tab-tracker::-webkit-scrollbar{ width:6px; height:6px }
+    .panel::-webkit-scrollbar-track,
+    #list::-webkit-scrollbar-track,
+    .chat-log::-webkit-scrollbar-track,
+    .tips-scroll::-webkit-scrollbar-track,
+    #tab-tracker::-webkit-scrollbar-track{ background: transparent !important; border-radius:8px }
+    .panel::-webkit-scrollbar-thumb,
+    #list::-webkit-scrollbar-thumb,
+    .chat-log::-webkit-scrollbar-thumb,
+    .tips-scroll::-webkit-scrollbar-thumb,
+    #tab-tracker::-webkit-scrollbar-thumb{
+      background: var(--sb-thumb); border-radius:8px; border:2px solid transparent; background-clip: padding-box;
+    }
+    .panel::-webkit-scrollbar-thumb:hover,
+    #list::-webkit-scrollbar-thumb:hover,
+    .chat-log::-webkit-scrollbar-thumb:hover,
+    .tips-scroll::-webkit-scrollbar-thumb:hover,
+    #tab-tracker::-webkit-scrollbar-thumb:hover{ background: var(--sb-thumb-hover) }
     /* Slider label alignment helpers */
     .range-wrap{position:relative; width:90%; margin:0 auto}
     .range-wrap input[type=range]{width:100%; display:block; accent-color: var(--primary)}
