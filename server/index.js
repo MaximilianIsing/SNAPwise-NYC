@@ -166,8 +166,16 @@ app.post('/chat', async (req, res) => {
     // Load API key from api_key.txt file
     let apiKey;
     try {
-      const apiKeyPath = path.resolve(__dirname, '..', 'api_key.txt');
-      apiKey = fs.readFileSync(apiKeyPath, 'utf8').trim();
+      // Try Render's secret file path first, then fallback to local path
+      const renderPath = '/etc/secrets/api_key.txt';
+      const localPath = path.resolve(__dirname, '..', 'api_key.txt');
+      
+      if (fs.existsSync(renderPath)) {
+        apiKey = fs.readFileSync(renderPath, 'utf8').trim();
+      } else {
+        apiKey = fs.readFileSync(localPath, 'utf8').trim();
+      }
+      
       if (!apiKey) {
         return res.status(500).json({ error: 'API key file is empty' });
       }
