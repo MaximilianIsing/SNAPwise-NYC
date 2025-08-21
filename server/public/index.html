@@ -1926,74 +1926,58 @@
     
     // Function to make store names clickable in chat messages
     function makeStoreNamesClickable(chatDiv) {
-      // Get all text nodes and look for store names
-      const walker = document.createTreeWalker(
-        chatDiv,
-        NodeFilter.SHOW_TEXT,
-        null,
-        false
-      );
+      // Process the entire HTML content to find and replace store names
+      const html = chatDiv.innerHTML;
+      let modifiedHtml = html;
+      let hasChanges = false;
       
-      const textNodes = [];
-      let node;
-      while (node = walker.nextNode()) {
-        textNodes.push(node);
-      }
+      // Find all potential store names in the text
+      const words = html.split(/\s+/);
       
-      textNodes.forEach(textNode => {
-        const text = textNode.textContent;
-        if (!text || text.trim().length < 3) return;
+      words.forEach(word => {
+        // Clean the word (remove punctuation, etc.)
+        const cleanWord = word.replace(/[^\w\s]/g, '').trim();
+        if (cleanWord.length < 3) return;
         
-        // Look for potential store names (words that might match our stores)
-        const words = text.split(/\s+/);
-        let hasChanges = false;
-        
-        words.forEach(word => {
-          // Clean the word (remove punctuation, etc.)
-          const cleanWord = word.replace(/[^\w\s]/g, '').trim();
-          if (cleanWord.length < 3) return;
-          
-          // Find matching stores (case-insensitive, partial matches)
-          const matchingStores = originalFullResults.filter(store => {
-            const storeName = store.name.toLowerCase();
-            const searchTerm = cleanWord.toLowerCase();
-            return storeName.includes(searchTerm) || searchTerm.includes(storeName);
-          });
-          
-          if (matchingStores.length > 0) {
-            // Find the best match (closest distance)
-            const bestMatch = matchingStores.sort((a, b) => (a.distance_m || Infinity) - (b.distance_m || Infinity))[0];
-            
-            // Replace the word with a clickable link
-            const link = document.createElement('span');
-            link.className = 'store-link';
-            link.textContent = word;
-            link.style.color = 'var(--primary)';
-            link.style.cursor = 'pointer';
-            link.style.textDecoration = 'underline';
-            link.style.fontWeight = '500';
-            link.title = `Click to view ${bestMatch.name} on map`;
-            
-            // Add click handler to highlight store on map
-            link.addEventListener('click', () => {
-              highlightStoreOnMap(bestMatch);
-            });
-            
-            // Replace the word in the text
-            const newText = text.replace(word, link.outerHTML);
-            if (newText !== text) {
-              textNode.parentNode.innerHTML = newText;
-              hasChanges = true;
-            }
-          }
+        // Find matching stores (case-insensitive, partial matches)
+        const matchingStores = originalFullResults.filter(store => {
+          const storeName = store.name.toLowerCase();
+          const searchTerm = cleanWord.toLowerCase();
+          return storeName.includes(searchTerm) || searchTerm.includes(storeName);
         });
         
-        // If we made changes, we need to re-parse the HTML
-        if (hasChanges) {
-          // Re-apply the store link functionality to the new content
-          setTimeout(() => makeStoreNamesClickable(chatDiv), 0);
+        if (matchingStores.length > 0) {
+          // Find the best match (closest distance)
+          const bestMatch = matchingStores.sort((a, b) => (a.distance_m || Infinity) - (b.distance_m || Infinity))[0];
+          
+          // Create the clickable link HTML
+          const linkHtml = `<span class="store-link" style="color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 500;" title="Click to view ${bestMatch.name} on map" data-store-id="${bestMatch.id}">${word}</span>`;
+          
+          // Replace the word in the HTML
+          const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
+          if (regex.test(modifiedHtml)) {
+            modifiedHtml = modifiedHtml.replace(regex, linkHtml);
+            hasChanges = true;
+          }
         }
       });
+      
+      // If we made changes, update the HTML and add click handlers
+      if (hasChanges) {
+        chatDiv.innerHTML = modifiedHtml;
+        
+        // Add click handlers to all store links
+        const storeLinks = chatDiv.querySelectorAll('.store-link');
+        storeLinks.forEach(link => {
+          const storeId = link.getAttribute('data-store-id');
+          const store = originalFullResults.find(s => s.id === storeId);
+          if (store) {
+            link.addEventListener('click', () => {
+              highlightStoreOnMap(store);
+            });
+          }
+        });
+      }
     }
     
     // Function to highlight a store on the map
