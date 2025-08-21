@@ -412,7 +412,7 @@
       <img src="media/icons/IconCover180x180.png" alt="App icon" class="logo"/>
       <h1>SNAPwise NYC</h1>
       <div class="controls">
-        <input id="zip" placeholder="Enter ZIP (e.g., 10452)"/>
+        <input id="zip" placeholder="Enter ZIP (e.g., 10452)" maxlength="5" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 5)"/>
         <select id="radius">
           <option value="804" selected>0.5 mi</option>
           <option value="1609">1 mi</option>
@@ -2166,52 +2166,53 @@
         return textarea.value;
       }
       
-      // Look for AI-marked store names using %lstore name%l format
-      const linkPattern = /%l([^%]+)%l/g;
+      // Look for AI-marked store names using %lstore name%l or **store name** format
+      const linkPattern = /%l([^%]+)%l|\*\*([^*]+)\*\*/g;
       let match;
       let hasLinkChanges = false;
       
-              while ((match = linkPattern.exec(modifiedHtml)) !== null) {
-          const storeName = match[1].trim();
-          
-          // Decode HTML entities (like &amp; -> &)
-          const decodedStoreName = decodeHTMLEntities(storeName);
-          
-          // Find the store in our database with improved matching
-          let store = null;
-          if (hasStores) {
-            store = sortedStores.find(s => {
-              const storeNameLower = s.name.toLowerCase().trim();
-              const searchNameLower = decodedStoreName.toLowerCase().trim();
-              
-              // Exact match
-              if (storeNameLower === searchNameLower) return true;
-              
-              // Contains match (either direction)
-              if (storeNameLower.includes(searchNameLower) || searchNameLower.includes(storeNameLower)) return true;
-              
-              // Partial word match for cases like "CVS 2144" vs "CVS  2144"
-              const storeWords = storeNameLower.split(/\s+/).filter(w => w.length > 0);
-              const searchWords = searchNameLower.split(/\s+/).filter(w => w.length > 0);
-              
-              // Check if all search words are found in store words
-              return searchWords.every(searchWord => 
-                storeWords.some(storeWord => storeWord.includes(searchWord) || searchWord.includes(storeWord))
-              );
-            });
-          }
+      while ((match = linkPattern.exec(modifiedHtml)) !== null) {
+        // Extract store name from either format (%l or **)
+        const storeName = (match[1] || match[2]).trim();
         
-                  if (store) {
-            // Create the clickable link HTML
-            const linkHtml = `<span class="store-link" style="color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 500;" title="Click to view ${store.name} on map" data-store-id="${store.id}">${storeName}</span>`;
+        // Decode HTML entities (like &amp; -> &)
+        const decodedStoreName = decodeHTMLEntities(storeName);
+        
+        // Find the store in our database with improved matching
+        let store = null;
+        if (hasStores) {
+          store = sortedStores.find(s => {
+            const storeNameLower = s.name.toLowerCase().trim();
+            const searchNameLower = decodedStoreName.toLowerCase().trim();
             
-            // Replace the /lstore name/l pattern with the link
-            modifiedHtml = modifiedHtml.replace(match[0], linkHtml);
-            hasLinkChanges = true;
-          } else {
-            // If no store found, just remove the /l markers but keep the text
-            modifiedHtml = modifiedHtml.replace(match[0], storeName);
-          }
+            // Exact match
+            if (storeNameLower === searchNameLower) return true;
+            
+            // Contains match (either direction)
+            if (storeNameLower.includes(searchNameLower) || searchNameLower.includes(storeNameLower)) return true;
+            
+            // Partial word match for cases like "CVS 2144" vs "CVS  2144"
+            const storeWords = storeNameLower.split(/\s+/).filter(w => w.length > 0);
+            const searchWords = searchNameLower.split(/\s+/).filter(w => w.length > 0);
+            
+            // Check if all search words are found in store words
+            return searchWords.every(searchWord => 
+              storeWords.some(storeWord => storeWord.includes(searchWord) || searchWord.includes(storeWord))
+            );
+          });
+        }
+      
+        if (store) {
+          // Create the clickable link HTML
+          const linkHtml = `<span class="store-link" style="color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 500;" title="Click to view ${store.name} on map" data-store-id="${store.id}">${storeName}</span>`;
+          
+          // Replace the pattern with the link
+          modifiedHtml = modifiedHtml.replace(match[0], linkHtml);
+          hasLinkChanges = true;
+        } else {
+          // If no store found, just remove the markers but keep the text
+          modifiedHtml = modifiedHtml.replace(match[0], storeName);
+        }
       }
       
       if (hasLinkChanges) {
@@ -2219,12 +2220,29 @@
       }
       
       // Safety check: Remove any remaining %l markers that weren't processed
-      const remainingMarkers = modifiedHtml.match(/%l[^%]*%l/g);
+      // This catches any %l markers that might have been missed by the main processing
+      let remainingMarkers = modifiedHtml.match(/%l[^%]*%l/g);
       if (remainingMarkers) {
         remainingMarkers.forEach(marker => {
           const cleanText = marker.replace(/%l/g, ''); // Remove %l markers, keep the text
           modifiedHtml = modifiedHtml.replace(marker, cleanText);
         });
+        hasChanges = true;
+      }
+      
+      // Final safety check: Remove any orphaned %l markers (single %l without a pair)
+      const orphanedMarkers = modifiedHtml.match(/%l(?!.*%l)/g);
+      if (orphanedMarkers) {
+        orphanedMarkers.forEach(marker => {
+          const cleanText = marker.replace(/%l/g, ''); // Remove %l marker, keep any text after it
+          modifiedHtml = modifiedHtml.replace(marker, cleanText);
+        });
+        hasChanges = true;
+      }
+      
+      // Ultimate safety: Remove any remaining %l characters anywhere in the text
+      if (modifiedHtml.includes('%l')) {
+        modifiedHtml = modifiedHtml.replace(/%l/g, '');
         hasChanges = true;
       }
       
