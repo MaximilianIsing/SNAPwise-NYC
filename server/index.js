@@ -184,12 +184,41 @@ app.post('/chat', async (req, res) => {
       maxTokens = 350;
       temperature = 0.7;
     }
+    // Enhanced system prompt with store context awareness
+    let systemContent = `You are a supportive nutrition coach for low-income users using SNAP benefits in NYC. Keep responses practical and culturally sensitive. Offer affordable suggestions, highlight whole foods and high-protein budget options, and include quick recipes where relevant. If the user asks for medical advice, include a brief disclaimer and suggest consulting a professional. User goal: ${goal || 'unspecified'}. ${lengthHint}`;
+    
+    // Add store-specific guidance if stores are available
+    if (context && context.stores && Array.isArray(context.stores) && context.stores.length > 0) {
+      systemContent += `\n\nIMPORTANT: You have access to information about ${context.stores.length} stores near the user's location. When the user asks about where to find specific foods, stores, or shopping locations, use this store data to provide specific, actionable recommendations. Include store names, addresses, distances, and any relevant details like store types or health ratings. Make your answers location-specific and practical.`;
+    }
+    
     const system = {
       role: 'system',
-      content: `You are a supportive nutrition coach for low-income users using SNAP benefits in NYC. Keep responses practical and culturally sensitive. Offer affordable, store-agnostic suggestions, highlight whole foods and high-protein budget options, and include quick recipes where relevant. If the user asks for medical advice, include a brief disclaimer and suggest consulting a professional. User goal: ${goal || 'unspecified'}. ${lengthHint}`
+      content: systemContent
     };
 
-    const userContext = context ? [{ role: 'user', content: `Context: ${JSON.stringify(context)}` }] : [];
+    // Enhanced context handling for stores
+    let userContext = [];
+    if (context) {
+      if (context.stores && Array.isArray(context.stores) && context.stores.length > 0) {
+        // Format store data for better AI understanding
+        const storeInfo = context.stores.map(store => 
+          `${store.name} (${store.storeType}) - ${store.address}, ${store.city} ${store.zip} - ${store.distance}m away${store.aiScore ? ` - Health Rating: ${store.aiScore}/10` : ''}`
+        ).join('\n');
+        
+        userContext.push({ 
+          role: 'user', 
+          content: `Available stores near you:\n${storeInfo}\n\nUse this information to provide specific store recommendations when relevant.` 
+        });
+      }
+      
+      if (context.zip) {
+        userContext.push({ 
+          role: 'user', 
+          content: `User's ZIP code: ${context.zip}` 
+        });
+      }
+    }
     const body = {
       model: 'gpt-4o-mini',
       messages: [system, ...userContext, ...(Array.isArray(messages) ? messages : [])].slice(-20),

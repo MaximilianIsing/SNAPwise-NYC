@@ -1953,7 +1953,35 @@
       const thinking = createThinkingMessage();
       startThinkingAnimation(thinking.dotsEl);
       const respLen = (localStorage.getItem('resp_len') || 'default');
-      const body = { goal: userGoal, responseLength: respLen, messages: chatMessages.slice(-10), context: { zip: document.getElementById('zip').value } };
+      
+      // Get the closest stores for context (limit to 100 for relevance)
+      let storeContext = [];
+      if (typeof originalFullResults !== 'undefined' && Array.isArray(originalFullResults) && originalFullResults.length > 0) {
+        // Sort by distance and take the closest 100 stores
+        const sortedStores = [...originalFullResults].sort((a, b) => (a.distance_m || Infinity) - (b.distance_m || Infinity));
+        storeContext = sortedStores.slice(0, 100).map(store => ({
+          name: store.name,
+          address: store.address,
+          city: store.city,
+          zip: store.zip,
+          storeType: store.storeType,
+          distance: store.distance_m,
+          isHealthyStore: store.isHealthyStore,
+          aiScore: store.aiScore,
+          aiReason: store.aiReason
+        }));
+      }
+      
+      const body = { 
+        goal: userGoal, 
+        responseLength: respLen, 
+        messages: chatMessages.slice(-10), 
+        context: { 
+          zip: document.getElementById('zip').value,
+          stores: storeContext
+        } 
+      };
+      
       const res = await fetch(`${API_BASE}/chat`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
       if (!res.ok){ stopThinkingAnimation(thinking.dotsEl); thinking.container.textContent = 'Sorry, the coach is busy. Try again.'; return; }
       const data = await res.json();
