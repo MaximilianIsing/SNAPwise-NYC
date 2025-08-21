@@ -283,7 +283,50 @@
       header .settings{ display:none }
       .settings-mobile{ display:block }
       
-
+      /* Mobile: Center text in search and location buttons */
+      header .controls button{ text-align:center; justify-content:center }
+      
+      /* Mobile: Fix response length button sizing and positioning */
+      #respLenGroupMobile{ 
+        display: flex; 
+        width: 90%; 
+        margin: 0 auto; 
+        border: 1px solid var(--border); 
+        border-radius: 12px; 
+        overflow: hidden; 
+        justify-content: center;
+        background: var(--white);
+      }
+      #respLenGroupMobile button{ 
+        flex: 1 1 0; 
+        min-width: 80px; 
+        border: none !important; 
+        border-radius: 0; 
+        height: 36px; 
+        padding: 8px 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        background: var(--white);
+        color: var(--ink);
+        font-size: 14px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        box-sizing: border-box;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #respLenGroupMobile button:last-child{ 
+        border-right: none !important; 
+      }
+      #respLenGroupMobile button.btn-primary{ 
+        background: var(--primary) !important; 
+        color: var(--white) !important; 
+        border: none !important;
+      }
+      
       /* Fit ZIP, radius, healthy on one line */
       #zip{ flex:1 1 160px; min-width:0 }
       #radius{ flex:0 0 92px }
@@ -2159,6 +2202,21 @@
           if (headerMax && mobileMax) {
             mobileMax.value = headerMax.value;
           }
+          
+          // Sync response length button states
+          const headerRespButtons = headerSettings.querySelectorAll('#respLenGroup button');
+          const mobileRespButtons = mobileSettings.querySelectorAll('#respLenGroupMobile button');
+          headerRespButtons.forEach((headerBtn, index) => {
+            if (mobileRespButtons[index]) {
+              if (headerBtn.classList.contains('btn-primary')) {
+                mobileRespButtons[index].classList.remove('btn');
+                mobileRespButtons[index].classList.add('btn-primary');
+              } else {
+                mobileRespButtons[index].classList.remove('btn-primary');
+                mobileRespButtons[index].classList.add('btn');
+              }
+            }
+          });
         };
         
         // Sync from mobile to header
@@ -2212,13 +2270,34 @@
         // Handle mobile response length buttons
         const mobileRespButtons = mobileSettings.querySelectorAll('#respLenGroupMobile button');
         mobileRespButtons.forEach(button => {
-          button.addEventListener('click', function() {
+          button.addEventListener('click', function(e) {
+            e.preventDefault(); // Prevent default button behavior
+            e.stopPropagation(); // Stop event bubbling
+            
+            const selectedValue = button.dataset.val;
+            
+            // Update mobile button states
+            mobileRespButtons.forEach(btn => {
+              btn.classList.remove('btn-primary');
+              btn.classList.add('btn');
+            });
+            button.classList.remove('btn');
+            button.classList.add('btn-primary');
+            
+            // Update header button states
             const headerRespButtons = headerSettings.querySelectorAll('#respLenGroup button');
             headerRespButtons.forEach(headerBtn => {
-              if (headerBtn.dataset.val === button.dataset.val) {
-                headerBtn.click();
+              if (headerBtn.dataset.val === selectedValue) {
+                headerBtn.classList.remove('btn');
+                headerBtn.classList.add('btn-primary');
+              } else {
+                headerBtn.classList.remove('btn-primary');
+                headerBtn.classList.add('btn');
               }
             });
+            
+            // Save to localStorage
+            localStorage.setItem('resp_len', selectedValue);
           });
         });
       }
