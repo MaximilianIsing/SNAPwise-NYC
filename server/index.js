@@ -163,8 +163,18 @@ app.get('/zip/:zip', (req, res) => {
 // Simple Chat proxy for nutrition advice
 app.post('/chat', async (req, res) => {
   try {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: 'Server missing OPENAI_API_KEY' });
+    // Load API key from api_key.txt file
+    let apiKey;
+    try {
+      const apiKeyPath = path.resolve(__dirname, '..', 'api_key.txt');
+      apiKey = fs.readFileSync(apiKeyPath, 'utf8').trim();
+      console.log(apiKey)
+      if (!apiKey) {
+        return res.status(500).json({ error: 'API key file is empty' });
+      }
+    } catch (err) {
+      return res.status(500).json({ error: 'Could not read api_key.txt file' });
+    }
 
     const { messages, goal, context, responseLength } = req.body || {};
     const length = String(responseLength || 'default');
@@ -247,23 +257,12 @@ app.post('/chat', async (req, res) => {
 });
 
 async function start() {
-  /** Build candidate CSV paths from env and common locations */
-  const candidates = [];
-  const envCsv = process.env.STORES_CSV;
-  if (envCsv) {
-    // Try as absolute, relative to server/, and relative to repo root
-    if (path.isAbsolute(envCsv)) candidates.push(envCsv);
-    candidates.push(path.resolve(__dirname, envCsv));
-    candidates.push(path.resolve(__dirname, '..', envCsv));
-  }
-  // Common defaults
-  candidates.push(path.resolve(__dirname, '..', 'NYC Food Stamp Stores.csv'));
-  candidates.push(path.resolve(__dirname, '..', 'source csv', 'NYC Food Stamp Stores.csv'));
-  candidates.push(path.resolve(__dirname, 'NYC Food Stamp Stores.csv'));
-  const csvPath = candidates.find((p) => fs.existsSync(p));
+  // Use the actual CSV file location in the server directory
+  const csvPath = path.resolve(__dirname, 'NYC Food Stamp Stores.csv');
+  
   try {
-    if (!csvPath) {
-      console.error('Could not find NYC stores CSV. Tried:', candidates);
+    if (!fs.existsSync(csvPath)) {
+      console.error(`Could not find NYC stores CSV at: ${csvPath}`);
       process.exit(1);
     }
     stores = await loadStoresFromCsv(csvPath);
