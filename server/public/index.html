@@ -1937,30 +1937,70 @@
       let modifiedHtml = html;
       let hasChanges = false;
       
-      // Sort stores by distance to prioritize closest matches
-      const sortedStores = [...originalFullResults].sort((a, b) => (a.distance_m || Infinity) - (b.distance_m || Infinity));
+      // Sort stores by distance to prioritize closest matches, and by name length (longer names first)
+      const sortedStores = [...originalFullResults]
+        .sort((a, b) => {
+          // First sort by distance
+          const distanceDiff = (a.distance_m || Infinity) - (b.distance_m || Infinity);
+          if (distanceDiff !== 0) return distanceDiff;
+          // Then by name length (longer names first for better matching)
+          return b.name.length - a.name.length;
+        });
       
-      // Look for full store names in the text (longest matches first)
-      sortedStores.forEach(store => {
-        const storeName = store.name;
-        if (storeName.length < 3) return;
-        
-        // Escape special regex characters in the store name
-        const escapedName = storeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        
-        // Create a regex that matches the full store name as a word boundary
-        const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
-        
-        // Check if this store name exists in the text
-        if (regex.test(modifiedHtml)) {
-          // Create the clickable link HTML
-          const linkHtml = `<span class="store-link" style="color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 500;" title="Click to view ${storeName} on map" data-store-id="${store.id}">${storeName}</span>`;
+      // Function to decode HTML entities (like &amp; -> &)
+      function decodeHTMLEntities(text) {
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = text;
+        return textarea.value;
+      }
+      
+      // Look for AI-marked store names using %lstore name%l format
+      const linkPattern = /%l([^%]+)%l/g;
+      let match;
+      let hasLinkChanges = false;
+      
+              while ((match = linkPattern.exec(modifiedHtml)) !== null) {
+          const storeName = match[1].trim();
+          console.log('storeName:', storeName);
           
-          // Replace all occurrences of this store name
-          modifiedHtml = modifiedHtml.replace(regex, linkHtml);
-          hasChanges = true;
+          // Decode HTML entities (like &amp; -> &)
+          const decodedStoreName = decodeHTMLEntities(storeName);
+          console.log('decodedStoreName:', decodedStoreName);
+          
+          // Find the store in our database
+          const store = sortedStores.find(s => 
+            s.name.toLowerCase().includes(decodedStoreName.toLowerCase()) ||
+            decodedStoreName.toLowerCase().includes(s.name.toLowerCase())
+          );
+        
+        if (store) {
+          
+          // Create the clickable link HTML
+          const linkHtml = `<span class="store-link" style="color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 500;" title="Click to view ${store.name} on map" data-store-id="${store.id}">${storeName}</span>`;
+          
+          // Replace the /lstore name/l pattern with the link
+          modifiedHtml = modifiedHtml.replace(match[0], linkHtml);
+          hasLinkChanges = true;
+        } else {
+          // If no store found, just remove the /l markers but keep the text
+          modifiedHtml = modifiedHtml.replace(match[0], storeName);
         }
-      });
+      }
+      
+      if (hasLinkChanges) {
+        hasChanges = true;
+      }
+      
+      // Safety check: Remove any remaining %l markers that weren't processed
+      const remainingMarkers = modifiedHtml.match(/%l[^%]*%l/g);
+      if (remainingMarkers) {
+        console.log('Removing remaining unprocessed markers:', remainingMarkers);
+        remainingMarkers.forEach(marker => {
+          const cleanText = marker.replace(/%l/g, ''); // Remove %l markers, keep the text
+          modifiedHtml = modifiedHtml.replace(marker, cleanText);
+        });
+        hasChanges = true;
+      }
       
       // If we made changes, update the HTML and add click handlers
       if (hasChanges) {
@@ -2089,11 +2129,18 @@
       };
       
       const res = await fetch(`${API_BASE}/chat`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-      if (!res.ok){ stopThinkingAnimation(thinking.dotsEl); thinking.container.textContent = 'Sorry, the coach is busy. Try again.'; return; }
+      if (!res.ok){ 
+        stopThinkingAnimation(thinking.dotsEl); 
+        thinking.container.textContent = 'Sorry, the coach is busy. Try again later.'; 
+        return; 
+      }
       const data = await res.json();
       const msg = data.choices?.[0]?.message?.content || 'Okay.';
       chatMessages.push({ role:'assistant', content: msg });
+      
+      // Stop the thinking animation and remove the thinking message
       stopThinkingAnimation(thinking.dotsEl);
+      thinking.container.remove();
       
       // Use appendChat to ensure store names are made clickable
       appendChat('assistant', msg);

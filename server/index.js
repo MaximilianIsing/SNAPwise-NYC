@@ -168,7 +168,6 @@ app.post('/chat', async (req, res) => {
     try {
       const apiKeyPath = path.resolve(__dirname, '..', 'api_key.txt');
       apiKey = fs.readFileSync(apiKeyPath, 'utf8').trim();
-      console.log(apiKey)
       if (!apiKey) {
         return res.status(500).json({ error: 'API key file is empty' });
       }
@@ -183,23 +182,23 @@ app.post('/chat', async (req, res) => {
     let temperature = 0.7;
     if (length === 'concise'){
       lengthHint = 'Respond in at most 3 short bullet points (max 15 words each). No intro or outro.';
-      maxTokens = 150;
+      maxTokens = 500;
       temperature = 0.4;
     } else if (length === 'comprehensive'){
       lengthHint = 'Provide comprehensive guidance: 6-10 concise bullet points with examples, then a one-sentence summary.';
-      maxTokens = 700;
+      maxTokens = 2000;
       temperature = 0.8;
     } else {
       lengthHint = 'Respond in 5-8 succinct sentences with practical steps and examples.';
-      maxTokens = 350;
+      maxTokens = 1000;
       temperature = 0.7;
     }
     // Enhanced system prompt with store context awareness
-    let systemContent = `You are a supportive nutrition coach for low-income users using SNAP benefits in NYC. Keep responses practical and culturally sensitive. Offer affordable suggestions, highlight whole foods and high-protein budget options, and include quick recipes where relevant. If the user asks for medical advice, include a brief disclaimer and suggest consulting a professional. User goal: ${goal || 'unspecified'}. ${lengthHint}`;
+    let systemContent = `You are a supportive nutrition coach for low-income users using SNAP benefits in NYC. Keep responses practical and culturally sensitive. Offer affordable suggestions, highlight whole foods and high-protein budget options, and include quick recipes where relevant. If the user asks for medical advice, include a brief disclaimer and suggest consulting a professional. User goal: ${goal || 'unspecified'}. ${lengthHint}\n\nSTORE LINKING: When mentioning specific store names that exist in the user's area, surround them with %l markers like this: %lStore Name%l. This will automatically make the store name clickable and show it on the map.`;
     
     // Add store-specific guidance if stores are available
     if (context && context.stores && Array.isArray(context.stores) && context.stores.length > 0) {
-      systemContent += `\n\nIMPORTANT: You have access to information about ${context.stores.length} stores near the user's location. When the user asks about where to find specific foods, stores, or shopping locations, use this store data to provide specific, actionable recommendations. Include store names, addresses, distances, and any relevant details like store types or health ratings. Make your answers location-specific and practical.`;
+      systemContent += `\n\nIMPORTANT: You have access to information about ${context.stores.length} stores near the user's location. When the user asks about where to find specific foods, stores, or shopping locations, use this store data to provide specific, actionable recommendations. Include store names, addresses, distances, and any relevant details like store types or health ratings. Make your answers location-specific and practical.\n\nSTORE LINKING: When mentioning specific store names that exist in the user's area, surround them with %l markers like this: %lStore Name%l. This will automatically make the store name clickable and show it on the map. For example: "You can find fresh produce at %lLa Mexicana Fruit & Grocery Corp%l which is only 0.3 miles away."`;
     }
     
     const system = {
@@ -250,6 +249,7 @@ app.post('/chat', async (req, res) => {
       return res.status(500).json({ error: 'OpenAI error', detail: text });
     }
     const data = await response.json();
+    console.log('Response Content:', data.choices?.[0]?.message?.content || 'No content');
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: 'Chat proxy failed' });
