@@ -1424,6 +1424,9 @@
 
     let myLocationMarker = null;
     document.getElementById('locBtn').addEventListener('click', () => {
+      // Clear store context when changing location so coach uses new data
+      clearStoreContext();
+      
       // Clear store search when using location
       const storeSearchInput = document.getElementById('storeSearch');
       if (storeSearchInput) {
@@ -1448,7 +1451,10 @@
       }, () => alert('Location permission denied. Enter a ZIP instead.'));
     });
 
-    document.getElementById('searchBtn').addEventListener('click', async () => {
+        document.getElementById('searchBtn').addEventListener('click', async () => {
+      // Clear store context when changing location so coach uses new data
+      clearStoreContext();
+      
       // Clear store search when performing new location search
       const storeSearchInput = document.getElementById('storeSearch');
       if (storeSearchInput) {
@@ -1466,7 +1472,7 @@
       currentLat = lat; currentLng = lng;
       map.setView([lat, lng], DEFAULT_ZOOM);
       if (myLocationMarker){ map.removeLayer(myLocationMarker); }
-      const zipSuffix = zip ? ` (ZIP ${zip})` : '';
+      const zipSuffix = zip ? ` (ZIP ${zip})` : ''; 
       myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location${zipSuffix}`);
       myLocationMarker.openPopup();
       queryWithFallback(lat, lng);
@@ -2004,6 +2010,18 @@
         console.error('Error highlighting store on map:', error);
       }
     }
+    
+    // Function to clear store context for the coach
+    function clearStoreContext() {
+      // Clear any existing store context so coach uses new location data
+      if (typeof originalFullResults !== 'undefined') {
+        originalFullResults = [];
+      }
+      // Also clear any filtered results
+      if (typeof filteredStoreResults !== 'undefined') {
+        filteredStoreResults = [];
+      }
+    }
     function createThinkingMessage(){
       const log = document.getElementById('chatLog');
       const div = document.createElement('div');
@@ -2099,6 +2117,12 @@
           const btn = document.getElementById('searchBtn');
           if (btn) btn.click();
         }
+      });
+      
+      // Clear store context when ZIP code changes
+      zipInput.addEventListener('input', () => {
+        // Clear store context so coach uses new location data
+        clearStoreContext();
       });
     })();
     // Voice input
