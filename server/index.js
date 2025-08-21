@@ -33,6 +33,8 @@ app.use('/', express.static(path.join(__dirname, 'public')));
  * granteeName?: string,
  * aiScore?: number,
  * aiReason?: string,
+ * aiEconomyScore?: number,
+ * aiEconomyReason?: string,
  * latitude: number,
  * longitude: number
  * }>} */
@@ -75,16 +77,27 @@ function loadStoresFromCsv(csvPath) {
         const lon = parseFloat(row['Longitude']);
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return; // skip
 
-        // Parse AI score if present
+        // Parse AI health score if present
         let aiScore = undefined;
-        const rawScore = row['AI_Health_Score'];
-        if (rawScore !== undefined && rawScore !== null && String(rawScore).trim() !== '') {
-          const n = parseInt(String(rawScore), 10);
+        const rawHealthScore = row['AI_Health_Score'];
+        if (rawHealthScore !== undefined && rawHealthScore !== null && String(rawHealthScore).trim() !== '') {
+          const n = parseInt(String(rawHealthScore), 10);
           if (Number.isFinite(n)) {
             aiScore = Math.max(1, Math.min(10, n));
           }
         }
         const aiReason = String(row['AI_Health_Reason'] || '');
+
+        // Parse AI economy score if present
+        let aiEconomyScore = undefined;
+        const rawEconomyScore = row['AI_Economy_Score'];
+        if (rawEconomyScore !== undefined && rawEconomyScore !== null && String(rawEconomyScore).trim() !== '') {
+          const n = parseInt(String(rawEconomyScore), 10);
+          if (Number.isFinite(n)) {
+            aiEconomyScore = Math.max(1, Math.min(5, n));
+          }
+        }
+        const aiEconomyReason = String(row['AI_Economy_Reason'] || '');
 
         results.push({
           id: String(row['Record_ID'] || row['ObjectId'] || ''),
@@ -100,6 +113,8 @@ function loadStoresFromCsv(csvPath) {
           granteeName: String(row['Grantee_Name'] || ''),
           aiScore,
           aiReason,
+          aiEconomyScore,
+          aiEconomyReason,
           latitude: lat,
           longitude: lon,
         });
@@ -206,7 +221,7 @@ app.post('/chat', async (req, res) => {
     
     // Add store-specific guidance if stores are available
     if (context && context.stores && Array.isArray(context.stores) && context.stores.length > 0) {
-      systemContent += `\n\nIMPORTANT: You have access to information about ${context.stores.length} stores near the user's location. When the user asks about where to find specific foods, stores, or shopping locations, use this store data to provide specific, actionable recommendations. Include store names, addresses, distances, and any relevant details like store types or health ratings. Make your answers location-specific and practical.\n\nSTORE LINKING: When mentioning specific store names that exist in the user's area, surround them with %l markers like this: %lStore Name%l. This will automatically make the store name clickable and show it on the map. For example: "You can find fresh produce at %lLa Mexicana Fruit & Grocery Corp%l which is only 0.3 miles away."`;
+      systemContent += `\n\nIMPORTANT: You have access to information about ${context.stores.length} stores near the user's location. When the user asks about where to find specific foods, stores, or shopping locations, use this store data to provide specific, actionable recommendations. Include store names, addresses, distances, and any relevant details like store types, health ratings, and price ratings. Make your answers location-specific and practical.\n\PRICE RATING SCALE: Price ratings range from 1-5 where 1 = most affordable/best value and 5 = most expensive/least value. Use this to help users find budget-friendly options.\n\nSTORE LINKING: When mentioning specific store names that exist in the user's area, surround them with %l markers like this: %lStore Name%l. This will automatically make the store name clickable and show it on the map. For example: "You can find fresh produce at %lLa Mexicana Fruit & Grocery Corp%l which is only 0.3 miles away."`;
     }
     
     const system = {
@@ -220,7 +235,7 @@ app.post('/chat', async (req, res) => {
       if (context.stores && Array.isArray(context.stores) && context.stores.length > 0) {
         // Format store data for better AI understanding
         const storeInfo = context.stores.map(store => 
-          `${store.name} (${store.storeType}) - ${store.address}, ${store.city} ${store.zip} - ${store.distance}m away${store.aiScore ? ` - Health Rating: ${store.aiScore}/10` : ''}`
+          `${store.name} (${store.storeType}) - ${store.address}, ${store.city} ${store.zip} - ${store.distance}m away${store.aiScore ? ` - Health Rating: ${store.aiScore}/10` : ''}${store.aiEconomyScore ? ` - Price Rating: ${store.aiEconomyScore}/5` : ''}`
         ).join('\n');
         
         userContext.push({ 
