@@ -201,7 +201,7 @@ MAX_NUM_STORES = 0                                    # 0 = rate all rows; other
 AI_RATE_DELAY = 0.15                                # seconds between API calls
 IS_HEALTHY_BONUS = 2                                # number added to health score if healthy
 IS_GROCERY_BONUS = -1                                # number added to health score if grocery
-IS_RESTAURANT_BONUS = 1                                # number added to health score if restaurant
+IS_RESTAURANT_BONUS = 0                                # number added to health score if restaurant
 
 
 if not OPENAI_API_KEY:

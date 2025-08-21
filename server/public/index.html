@@ -1567,7 +1567,7 @@
         const j = await res.json();
         return [j.latitude, j.longitude];
       }catch{
-        return [40.758,-73.985];
+        throw new Error('Invalid ZIP code. Please enter a valid NYC area ZIP code.');
       }
     }
 
@@ -1617,14 +1617,19 @@
       }
       
       const zip = document.getElementById('zip').value.trim();
-      const [lat, lng] = await zipToLatLng(zip);
-      currentLat = lat; currentLng = lng;
-      map.setView([lat, lng], DEFAULT_ZOOM);
-      if (myLocationMarker){ map.removeLayer(myLocationMarker); }
-      const zipSuffix = zip ? ` (ZIP ${zip})` : ''; 
-      myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location${zipSuffix}`);
-      myLocationMarker.openPopup();
-      queryWithFallback(lat, lng);
+      try {
+        const [lat, lng] = await zipToLatLng(zip);
+        currentLat = lat; currentLng = lng;
+        map.setView([lat, lng], DEFAULT_ZOOM);
+        if (myLocationMarker){ map.removeLayer(myLocationMarker); }
+        const zipSuffix = zip ? ` (ZIP ${zip})` : ''; 
+        myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location${zipSuffix}`);
+        myLocationMarker.openPopup();
+        queryWithFallback(lat, lng);
+      } catch (error) {
+        alert(error.message);
+        return;
+      }
     });
 
     // Initial location setup - try user location first, fallback to default ZIP
@@ -1660,22 +1665,24 @@
             try { updateRadiusLabels(); } catch {}
           }catch{
             // Use borough-based fallback coordinates
-            const defaultZip = getDefaultZipForBorough();
-            zipToLatLng(defaultZip).then(([lat, lng]) => {
+            try {
+              const defaultZip = getDefaultZipForBorough();
+              const [lat, lng] = await zipToLatLng(defaultZip);
               queryWithFallback(lat, lng);
-            }).catch(() => {
+            } catch {
               queryWithFallback(40.758, -73.985); // Ultimate fallback
-            });
+            }
           }
         });
       }catch{
         // Use borough-based fallback coordinates
-        const defaultZip = getDefaultZipForBorough();
-        zipToLatLng(defaultZip).then(([lat, lng]) => {
+        try {
+          const defaultZip = getDefaultZipForBorough();
+          const [lat, lng] = await zipToLatLng(defaultZip);
           queryWithFallback(lat, lng);
-        }).catch(() => {
+        } catch {
           queryWithFallback(40.758, -73.985); // Ultimate fallback
-        });
+        }
       }
     })();
 
