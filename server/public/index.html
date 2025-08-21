@@ -172,6 +172,8 @@
     .theme-toggle, .theme-switch, .theme-toggle img{ cursor:pointer }
     /* Onboarding controls */
     #boroughSelect{ cursor:pointer }
+#maxResults{ cursor:pointer }
+#maxResultsMobile{ cursor:pointer }
     .onboard .radio-group label, .onboard .radio-group input{ cursor:pointer }
     .tracker-card{background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow:0 2px 8px rgba(15,23,42,0.04)}
     .section-title{font-weight:600; margin:0 0 8px 0}
@@ -1909,12 +1911,120 @@
       if (role === 'assistant'){
         const html = DOMPurify.sanitize(marked.parse(String(text || '')));
         div.innerHTML = html;
+        
+        // Make store names clickable if we have store data
+        if (typeof originalFullResults !== 'undefined' && Array.isArray(originalFullResults) && originalFullResults.length > 0) {
+          makeStoreNamesClickable(div);
+        }
       } else {
         div.textContent = text;
       }
       log.appendChild(div);
       log.scrollTop = log.scrollHeight;
       return div;
+    }
+    
+    // Function to make store names clickable in chat messages
+    function makeStoreNamesClickable(chatDiv) {
+      // Get all text nodes and look for store names
+      const walker = document.createTreeWalker(
+        chatDiv,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+      
+      const textNodes = [];
+      let node;
+      while (node = walker.nextNode()) {
+        textNodes.push(node);
+      }
+      
+      textNodes.forEach(textNode => {
+        const text = textNode.textContent;
+        if (!text || text.trim().length < 3) return;
+        
+        // Look for potential store names (words that might match our stores)
+        const words = text.split(/\s+/);
+        let hasChanges = false;
+        
+        words.forEach(word => {
+          // Clean the word (remove punctuation, etc.)
+          const cleanWord = word.replace(/[^\w\s]/g, '').trim();
+          if (cleanWord.length < 3) return;
+          
+          // Find matching stores (case-insensitive, partial matches)
+          const matchingStores = originalFullResults.filter(store => {
+            const storeName = store.name.toLowerCase();
+            const searchTerm = cleanWord.toLowerCase();
+            return storeName.includes(searchTerm) || searchTerm.includes(storeName);
+          });
+          
+          if (matchingStores.length > 0) {
+            // Find the best match (closest distance)
+            const bestMatch = matchingStores.sort((a, b) => (a.distance_m || Infinity) - (b.distance_m || Infinity))[0];
+            
+            // Replace the word with a clickable link
+            const link = document.createElement('span');
+            link.className = 'store-link';
+            link.textContent = word;
+            link.style.color = 'var(--primary)';
+            link.style.cursor = 'pointer';
+            link.style.textDecoration = 'underline';
+            link.style.fontWeight = '500';
+            link.title = `Click to view ${bestMatch.name} on map`;
+            
+            // Add click handler to highlight store on map
+            link.addEventListener('click', () => {
+              highlightStoreOnMap(bestMatch);
+            });
+            
+            // Replace the word in the text
+            const newText = text.replace(word, link.outerHTML);
+            if (newText !== text) {
+              textNode.parentNode.innerHTML = newText;
+              hasChanges = true;
+            }
+          }
+        });
+        
+        // If we made changes, we need to re-parse the HTML
+        if (hasChanges) {
+          // Re-apply the store link functionality to the new content
+          setTimeout(() => makeStoreNamesClickable(chatDiv), 0);
+        }
+      });
+    }
+    
+    // Function to highlight a store on the map
+    function highlightStoreOnMap(store) {
+      try {
+        // Find the store's marker on the map
+        if (store._marker) {
+          // Fly to the store location
+          const targetZoom = Math.max(map.getZoom(), 16);
+          map.flyTo([store.latitude, store.longitude], targetZoom, { duration: 0.4 });
+          
+          // Highlight the marker
+          highlightMarker(store._marker);
+          
+          // Open the popup
+          store._marker.openPopup();
+          
+          // Also highlight the store in the list
+          const storeElement = document.querySelector(`[data-store-id="${store.id}"]`);
+          if (storeElement) {
+            // Remove previous selection
+            document.querySelectorAll('#list .store.selected').forEach(el => el.classList.remove('selected'));
+            // Add selection to this store
+            storeElement.classList.add('selected');
+            // Scroll to the store in the list
+            storeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      } catch (error) {
+        console.error('Error highlighting store on map:', error);
+      }
     }
     function createThinkingMessage(){
       const log = document.getElementById('chatLog');
@@ -1988,7 +2098,9 @@
       const msg = data.choices?.[0]?.message?.content || 'Okay.';
       chatMessages.push({ role:'assistant', content: msg });
       stopThinkingAnimation(thinking.dotsEl);
-      thinking.container.innerHTML = DOMPurify.sanitize(marked.parse(String(msg || '')));
+      
+      // Use appendChat to ensure store names are made clickable
+      appendChat('assistant', msg);
     }
     document.getElementById('chatSend').addEventListener('click', () => {
       const input = document.getElementById('chatInput');
