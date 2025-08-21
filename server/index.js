@@ -272,7 +272,7 @@ app.post('/chat', async (req, res) => {
       return res.status(500).json({ error: 'OpenAI error', detail: text });
     }
     const data = await response.json();
-    console.log('Response Content:', data.choices?.[0]?.message?.content || 'No content');
+    // console.log('Response Content:', data.choices?.[0]?.message?.content || 'No content');
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: 'Chat proxy failed' });
