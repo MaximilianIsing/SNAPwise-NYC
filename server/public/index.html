@@ -1931,34 +1931,28 @@
       let modifiedHtml = html;
       let hasChanges = false;
       
-      // Find all potential store names in the text
-      const words = html.split(/\s+/);
+      // Sort stores by distance to prioritize closest matches
+      const sortedStores = [...originalFullResults].sort((a, b) => (a.distance_m || Infinity) - (b.distance_m || Infinity));
       
-      words.forEach(word => {
-        // Clean the word (remove punctuation, etc.)
-        const cleanWord = word.replace(/[^\w\s]/g, '').trim();
-        if (cleanWord.length < 3) return;
+      // Look for full store names in the text (longest matches first)
+      sortedStores.forEach(store => {
+        const storeName = store.name;
+        if (storeName.length < 3) return;
         
-        // Find matching stores (case-insensitive, partial matches)
-        const matchingStores = originalFullResults.filter(store => {
-          const storeName = store.name.toLowerCase();
-          const searchTerm = cleanWord.toLowerCase();
-          return storeName.includes(searchTerm) || searchTerm.includes(storeName);
-        });
+        // Escape special regex characters in the store name
+        const escapedName = storeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         
-        if (matchingStores.length > 0) {
-          // Find the best match (closest distance)
-          const bestMatch = matchingStores.sort((a, b) => (a.distance_m || Infinity) - (b.distance_m || Infinity))[0];
-          
+        // Create a regex that matches the full store name as a word boundary
+        const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+        
+        // Check if this store name exists in the text
+        if (regex.test(modifiedHtml)) {
           // Create the clickable link HTML
-          const linkHtml = `<span class="store-link" style="color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 500;" title="Click to view ${bestMatch.name} on map" data-store-id="${bestMatch.id}">${word}</span>`;
+          const linkHtml = `<span class="store-link" style="color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 500;" title="Click to view ${storeName} on map" data-store-id="${store.id}">${storeName}</span>`;
           
-          // Replace the word in the HTML
-          const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
-          if (regex.test(modifiedHtml)) {
-            modifiedHtml = modifiedHtml.replace(regex, linkHtml);
-            hasChanges = true;
-          }
+          // Replace all occurrences of this store name
+          modifiedHtml = modifiedHtml.replace(regex, linkHtml);
+          hasChanges = true;
         }
       });
       
