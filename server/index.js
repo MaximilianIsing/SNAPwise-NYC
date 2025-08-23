@@ -29,8 +29,6 @@ app.use('/', express.static(path.join(__dirname, 'public')));
  * county: string,
  * storeType: string,
  * isHealthyStore: boolean,
- * incentiveProgram?: string,
- * granteeName?: string,
  * aiScore?: number,
  * aiReason?: string,
  * aiEconomyScore?: number,
@@ -65,6 +63,77 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+// NYC ZIP code and coordinate helper functions
+let nycZipCache = null;
+
+async function loadNYCZips() {
+  if (nycZipCache) return nycZipCache;
+  
+  try {
+    const csvPath = path.resolve(__dirname, '..', 'source csv', 'NYC Zip Codes.csv');
+    if (fs.existsSync(csvPath)) {
+      const results = [];
+      return new Promise((resolve, reject) => {
+        fs.createReadStream(csvPath)
+          .pipe(csv())
+          .on('data', (row) => {
+            results.push({
+              zip: row['ZipCode'],
+              borough: row['Borough']
+            });
+          })
+          .on('end', () => {
+            nycZipCache = Object.fromEntries(
+              results.map(r => [r.zip, r])
+            );
+            resolve(nycZipCache);
+          })
+          .on('error', (err) => reject(err));
+      });
+    }
+  } catch (error) {
+    console.log('Could not load NYC ZIP codes:', error.message);
+  }
+  
+  return {};
+}
+
+function getBoroughCoordinates(borough) {
+  // Approximate center coordinates for each NYC borough
+  const boroughCoords = {
+    'BRONX': { latitude: 40.8448, longitude: -73.8648 },
+    'BROOKLYN': { latitude: 40.6782, longitude: -73.9442 },
+    'MANHATTAN': { latitude: 40.7831, longitude: -73.9712 },
+    'QUEENS': { latitude: 40.7282, longitude: -73.7949 },
+    'STATEN ISLAND': { latitude: 40.5795, longitude: -74.1502 }
+  };
+  
+  return boroughCoords[borough.toUpperCase()] || boroughCoords['MANHATTAN'];
+}
+
+function getNYCApproximateCoordinates(zip) {
+  // For NYC area ZIP codes, provide approximate coordinates
+  // This is a fallback when exact coordinates aren't available
+  const zipPrefix = zip.substring(0, 3);
+  
+  // Approximate coordinates based on ZIP code prefixes
+  const zipPrefixCoords = {
+    '100': { latitude: 40.7589, longitude: -73.9851 }, // Manhattan
+    '101': { latitude: 40.7589, longitude: -73.9851 }, // Manhattan (business)
+    '102': { latitude: 40.7589, longitude: -73.9851 }, // Manhattan (business)
+    '103': { latitude: 40.5795, longitude: -74.1502 }, // Staten Island
+    '104': { latitude: 40.8448, longitude: -73.8648 }, // Bronx
+    '110': { latitude: 40.7282, longitude: -73.7949 }, // Queens
+    '111': { latitude: 40.7282, longitude: -73.7949 }, // Queens
+    '112': { latitude: 40.6782, longitude: -73.9442 }, // Brooklyn
+    '113': { latitude: 40.7282, longitude: -73.7949 }, // Queens
+    '114': { latitude: 40.7282, longitude: -73.7949 }, // Queens
+    '116': { latitude: 40.7282, longitude: -73.7949 }  // Queens (Rockaways)
+  };
+  
+  return zipPrefixCoords[zipPrefix] || null;
 }
 
 function loadStoresFromCsv(csvPath) {
@@ -109,8 +178,6 @@ function loadStoresFromCsv(csvPath) {
           county: String(row['County'] || ''),
           storeType: String(row['Store_Type'] || ''),
           isHealthyStore: parseBoolean(row['Is_Healthy_Store']),
-          incentiveProgram: String(row['Incentive_Program'] || ''),
-          granteeName: String(row['Grantee_Name'] || ''),
           aiScore,
           aiReason,
           aiEconomyScore,
@@ -166,13 +233,77 @@ app.get('/stores', (req, res) => {
   res.json(withDistance);
 });
 
-// Zip centroid lookup derived from store coordinates
-app.get('/zip/:zip', (req, res) => {
-  const zip = toZip5(req.params.zip);
-  if (!zip) return res.status(400).json({ error: 'Invalid ZIP' });
-  const centroid = zipCentroids[zip];
-  if (!centroid) return res.status(404).json({ error: 'ZIP not found' });
-  res.json(centroid);
+// Enhanced ZIP code lookup with multiple fallback sources
+app.get('/zip/:zip', async (req, res) => {
+  try {
+    const zip = toZip5(req.params.zip);
+    if (!zip) return res.status(400).json({ error: 'Invalid ZIP' });
+    
+    // First try: Use store centroids (most accurate for areas with stores)
+    const centroid = zipCentroids[zip];
+    if (centroid) {
+      return res.json(centroid);
+    }
+    
+    // Second try: Check if it's a valid NYC ZIP code using our comprehensive list
+    const nycZipData = await loadNYCZips();
+    if (nycZipData[zip]) {
+      // Use approximate coordinates based on borough
+      const boroughCoords = getBoroughCoordinates(nycZipData[zip].borough);
+      return res.json(boroughCoords);
+    }
+    
+    // Third try: Use OpenStreetMap Nominatim API (free, no key required)
+    try {
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?postalcode=${zip}&country=US&format=json&limit=1`;
+      const nominatimRes = await fetch(nominatimUrl);
+      if (nominatimRes.ok) {
+        const nominatimData = await nominatimRes.json();
+        if (nominatimData.length > 0) {
+          const coords = {
+            latitude: parseFloat(nominatimData[0].lat),
+            longitude: parseFloat(nominatimData[0].lon)
+          };
+          // Cache this result for future use
+          zipCentroids[zip] = coords;
+          return res.json(coords);
+        }
+      }
+    } catch (nominatimError) {
+      console.log(`Nominatim API failed for ZIP ${zip}:`, nominatimError.message);
+    }
+    
+    // Fourth try: Use USPS ZIP Code API (requires registration but more reliable)
+    try {
+      const uspsUrl = `https://secure.shippingapis.com/ShippingAPI.dll?API=CityStateLookup&XML=<CityStateLookupRequest><ZipCode ID="0"><Zip5>${zip}</Zip5></ZipCode></CityStateLookupRequest>`;
+      const uspsRes = await fetch(uspsUrl);
+      if (uspsRes.ok) {
+        const uspsText = await uspsRes.text();
+        // Parse USPS XML response to check if ZIP is valid
+        if (uspsText.includes('<Error>') === false) {
+          // ZIP is valid, use approximate NYC coordinates
+          const nycCoords = getNYCApproximateCoordinates(zip);
+          if (nycCoords) {
+            // Cache this result
+            zipCentroids[zip] = nycCoords;
+            return res.json(nycCoords);
+          }
+        }
+      }
+    } catch (uspsError) {
+      console.log(`USPS API failed for ZIP ${zip}:`, uspsError.message);
+    }
+    
+    // If all else fails, return error
+    return res.status(404).json({ 
+      error: 'ZIP not found', 
+      message: 'This ZIP code could not be located. Please try a different NYC area ZIP code.' 
+    });
+    
+  } catch (error) {
+    console.error('ZIP lookup error:', error);
+    return res.status(500).json({ error: 'ZIP lookup failed' });
+  }
 });
 
 // Simple Chat proxy for nutrition advice

@@ -1051,10 +1051,9 @@
               <div style="font-weight:600;">${s.name}</div>
               <div class="muted">${s.address}, ${s.city} ${s.zip}</div>
               <div class="muted">${s.storeType} · ${formatDistance(s.distance_m)} · ~${formatWalkTime(s.distance_m)}</div>
-              ${s.incentiveProgram ? `<div class="tag">${s.incentiveProgram}</div>` : ''}
             </div>
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
-                            <div style="display:flex; gap:6px; align-items:center;">
+              <div style="display:flex; gap:6px; align-items:center;">
                 ${s.aiEconomyScore ? `<span class=\"tag rating price\" data-reason=\"${s.aiEconomyReason || 'No price reason provided'}\" data-unfilled=\"${'$'.repeat(5 - s.aiEconomyScore)}\" style=\"background: ${s.aiEconomyScore === 1 ? '#90EE90' : s.aiEconomyScore === 2 ? '#32CD32' : s.aiEconomyScore === 3 ? '#FFA500' : s.aiEconomyScore === 4 ? '#FF8C00' : '#FF4500'};\">${'$'.repeat(s.aiEconomyScore)}</span>` : ''}
                 ${score ? `<span class=\"tag rating\" data-reason=\"${reasonTitle}\" style=\"background:${ratingColor}\">${score}/10</span>` : ''}
               </div>
