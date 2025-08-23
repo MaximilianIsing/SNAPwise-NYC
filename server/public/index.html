@@ -940,11 +940,12 @@
           // Update map view to new location
           map.setView([lat, lng], map.getZoom());
           
-          // Update location marker if it exists
+          // Always create/update the location marker
           if (myLocationMarker) {
             map.removeLayer(myLocationMarker);
-            myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
           }
+          myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
+          myLocationMarker.openPopup();
           
           // Re-query stores with new location
           queryStores(lat, lng);
@@ -1655,10 +1656,10 @@
             const [lat, lng] = await zipToLatLng(defaultZip);
             currentLat = lat; currentLng = lng;
             map.setView([lat, lng], DEFAULT_ZOOM);
-            if (typeof myLocationMarker !== 'undefined'){
-              if (myLocationMarker){ map.removeLayer(myLocationMarker); }
-              myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
-            }
+            // Always create/update the location marker when falling back to borough coordinates
+            if (myLocationMarker){ map.removeLayer(myLocationMarker); }
+            myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
+            myLocationMarker.openPopup();
             queryWithFallback(lat, lng);
             // Sync radius labels to units preference on first load
             try { updateRadiusLabels(); } catch {}
@@ -1667,9 +1668,17 @@
             try {
               const defaultZip = getDefaultZipForBorough();
               const [lat, lng] = await zipToLatLng(defaultZip);
+              // Create location marker for this fallback case too
+              if (myLocationMarker){ map.removeLayer(myLocationMarker); }
+              myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
+              myLocationMarker.openPopup();
               queryWithFallback(lat, lng);
             } catch {
-              queryWithFallback(40.758, -73.985); // Ultimate fallback
+              // Ultimate fallback - create marker at default coordinates
+              if (myLocationMarker){ map.removeLayer(myLocationMarker); }
+              myLocationMarker = L.marker([40.758, -73.985]).addTo(map).bindPopup('My location (Default)');
+              myLocationMarker.openPopup();
+              queryWithFallback(40.758, -73.985);
             }
           }
         });
@@ -1678,9 +1687,17 @@
         try {
           const defaultZip = getDefaultZipForBorough();
           const [lat, lng] = await zipToLatLng(defaultZip);
+          // Create location marker for this fallback case too
+          if (myLocationMarker){ map.removeLayer(myLocationMarker); }
+          myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
+          myLocationMarker.openPopup();
           queryWithFallback(lat, lng);
         } catch {
-          queryWithFallback(40.758, -73.985); // Ultimate fallback
+          // Ultimate fallback - create marker at default coordinates
+          if (myLocationMarker){ map.removeLayer(myLocationMarker); }
+          myLocationMarker = L.marker([40.758, -73.985]).addTo(map).bindPopup('My location (Default)');
+          myLocationMarker.openPopup();
+          queryWithFallback(40.758, -73.985);
         }
       }
     })();
