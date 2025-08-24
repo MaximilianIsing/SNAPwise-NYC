@@ -1577,6 +1577,31 @@
     }
 
     let myLocationMarker = null;
+    
+    // Check if geolocation is supported
+    function isGeolocationSupported() {
+      return 'geolocation' in navigator;
+    }
+    
+    // Show helpful location permission guidance
+    function showLocationHelp() {
+      const isMobile = window.innerWidth <= 900;
+      let helpMessage = 'To use your location:\n\n';
+      
+      if (isMobile) {
+        helpMessage += '1. Make sure location services are enabled on your device\n';
+        helpMessage += '2. Allow location access when prompted by your browser\n';
+        helpMessage += '3. If using Safari on iOS, go to Settings > Safari > Location and allow\n';
+        helpMessage += '4. If using Chrome on Android, check app permissions in Settings\n\n';
+      } else {
+        helpMessage += '1. Allow location access when prompted by your browser\n';
+        helpMessage += '2. Check that location services are enabled in your system settings\n\n';
+      }
+      
+      helpMessage += 'Alternatively, you can enter a ZIP code to search for stores in that area.';
+      alert(helpMessage);
+    }
+    
     document.getElementById('locBtn').addEventListener('click', () => {
       // Clear store context when changing location so coach uses new data
       clearStoreContext();
@@ -1593,6 +1618,19 @@
         }
       }
       
+      // Check if geolocation is supported
+      if (!isGeolocationSupported()) {
+        alert('Geolocation is not supported in your browser. Please enter a ZIP code instead.');
+        return;
+      }
+      
+      // Better geolocation options for mobile
+      const geoOptions = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      };
+      
       navigator.geolocation.getCurrentPosition(pos => {
         const { latitude, longitude } = pos.coords;
         map.setView([latitude, longitude], DEFAULT_ZOOM);
@@ -1602,7 +1640,25 @@
         myLocationMarker = L.marker([latitude, longitude]).addTo(map).bindPopup(`My location${zipSuffix}`);
         myLocationMarker.openPopup();
         queryStores(latitude, longitude);
-      }, () => alert('Location permission denied. Enter a ZIP instead.'));
+      }, (error) => {
+        // Better error handling for mobile
+        let errorMessage = 'Location access failed. ';
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += 'Please enable location access in your browser settings or enter a ZIP code.';
+            showLocationHelp();
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += 'Location information is unavailable. Please enter a ZIP code.';
+            break;
+          case error.TIMEOUT:
+            errorMessage += 'Location request timed out. Please try again or enter a ZIP code.';
+            break;
+          default:
+            errorMessage += 'Please enter a ZIP code instead.';
+        }
+        alert(errorMessage);
+      }, geoOptions);
     });
 
         document.getElementById('searchBtn').addEventListener('click', async () => {
@@ -1643,7 +1699,13 @@
         const zipInput = document.getElementById('zip');
         if (zipInput) zipInput.value = '';
         
-        // Try to get user location first
+        // Try to get user location first with better options for mobile
+        const geoOptions = {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 60000
+        };
+        
         navigator.geolocation.getCurrentPosition(pos => {
           const { latitude, longitude } = pos.coords;
           currentLat = latitude; currentLng = longitude;
@@ -1654,7 +1716,7 @@
           queryStores(latitude, longitude);
           // Sync radius labels to units preference on first load
           try { updateRadiusLabels(); } catch {}
-        }, async () => {
+        }, async (error) => {
           // Location permission denied, fallback to borough-based default ZIP
           try{
             const defaultZip = getDefaultZipForBorough();
