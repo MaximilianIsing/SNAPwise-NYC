@@ -400,9 +400,14 @@
     }
     .store-search-input::placeholder{ color:var(--muted) }
     
-    /* Mobile: hide store search bar */
+    /* Mobile: show store search bar */
     @media (max-width: 900px) {
-      .store-search-container{ display:none !important }
+      .store-search-container{ display:block !important }
+    }
+    
+    /* Mobile: hide "What is a known healthy store" dropdown */
+    @media (max-width: 900px) {
+      .healthy-store-info{ display:none !important }
     }
   </style>
 </head>
@@ -558,7 +563,7 @@
               </select>
             </div>
           </div>
-          <details style="margin:4px 0 8px 0">
+          <details class="healthy-store-info" style="margin:4px 0 8px 0">
             <summary class="muted" style="cursor:pointer">What is a "Known Healthy" store?</summary>
             <div class="tip info-scroll" style="margin-top:6px">
               <strong>Bodegas & Grocery Stores Receiving Recognition from Borough President's Office</strong><br/>
