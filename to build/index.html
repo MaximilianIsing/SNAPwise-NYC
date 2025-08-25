@@ -608,6 +608,9 @@
             >
               Return to Home Screen
             </button>
+            <div style="text-align:center; font-size:10px; font-style:italic; color:var(--muted); margin-top:4px">
+              mising26@cgps.org for inquiries
+            </div>
           </div>
         </details>
       </header>
@@ -728,6 +731,9 @@
           >
             Return to Home Screen
           </button>
+          <div style="text-align:center; font-size:10px; font-style:italic; color:var(--muted); margin-top:4px">
+            mising26@cgps.org for inquiries
+          </div>
         </div>
       </details>
 
@@ -832,7 +838,7 @@
                       type="number"
                       min="800"
                       max="4000"
-                      placeholder="e.g., 1800"
+                      placeholder="..."
                     />
                   </div>
                   <div>
@@ -842,16 +848,19 @@
                       type="number"
                       min="20"
                       max="300"
-                      placeholder="e.g., 100"
+                      placeholder="..."
                     />
                   </div>
+                </div>
+                <div style="text-align:center; font-size:10px; font-style:italic; color:var(--muted); margin-top:12px">
+                  According to the U.S. Food and Drug Administration, a 2,000-calorie daily diet is used as the basis for general nutrition recommendations.
                 </div>
               </div>
 
               <div class="tracker-card">
                 <div class="section-title">Log a meal</div>
                 <div class="grid2">
-                  <input id="mealName" placeholder="e.g., Tuna wrap" />
+                  <input id="mealName" placeholder="Food name" />
                   <input id="mealCals" type="number" placeholder="Calories" />
                 </div>
                 <div class="grid2" style="margin-top:6px">
@@ -1921,7 +1930,7 @@
                 const priceScore = (typeof s.aiEconomyScore === 'number' && isFinite(s.aiEconomyScore)) ? Math.max(1, Math.min(5, Math.round(s.aiEconomyScore))) : null;
           const priceReason = (typeof s.aiEconomyReason === 'string' && s.aiEconomyReason.trim()) ? escapeAttr(s.aiEconomyReason) : 'No price reason provided';
 
-                return `${popupTitle} <button class="icon-btn" data-ask="${encodeURIComponent(s.name)}" title="Ask coach about this place"><img data-magnify="1" src="${getMagnifyIcon()}" alt="Ask" style="width:12px; height:12px; vertical-align:middle"/></button><br/>${s.address}<br/>${s.city} ${s.zip}<br/><strong>Store type:</strong> ${s.storeType || 'N/A'}<br/>${formatDistance(s.distance_m)}${timeText ? ` · ~${timeText}` : ''}${score || priceScore ? `<br/><div style="display:flex; gap:4px; margin:4px 0;">${priceScore ? `<span class=\"tag rating price\" data-reason=\"${priceReason}\" data-unfilled=\"${'$'.repeat(5 - priceScore)}\" style=\"background: ${priceScore === 1 ? '#90EE90' : priceScore === 2 ? '#32CD32' : priceScore === 3 ? '#FFA500' : priceScore === 4 ? '#FF8C00' : '#FF4500'};\">${'$'.repeat(priceScore)}</span>` : ''}${score ? `<span class=\"tag rating\" style=\"background:${ratingColor}\" data-reason=\"${reasonTitle}\">${score}/10</span>` : ''}</div>` : ''}`;
+                return `${popupTitle} <button class="icon-btn" data-ask="${encodeURIComponent(s.name)}" title="Ask coach about this place"><img data-magnify="1" src="${getMagnifyIcon()}" alt="Ask" style="width:12px; height:12px; vertical-align:middle"/></button><br/>${s.address}<br/>${s.city} ${s.zip}<br/><strong>Store type:</strong> ${s.storeType || 'N/A'}<br/><strong>Distance: </strong>${formatDistance(s.distance_m)}${timeText ? ` · ~${timeText}` : ''}${score || priceScore ? `<br/><div style="display:flex; gap:4px; margin:4px 0;">${priceScore ? `<span class=\"tag rating price\" data-reason=\"${priceReason}\" data-unfilled=\"${'$'.repeat(5 - priceScore)}\" style=\"background: ${priceScore === 1 ? '#90EE90' : priceScore === 2 ? '#32CD32' : priceScore === 3 ? '#FFA500' : priceScore === 4 ? '#FF8C00' : '#FF4500'};\">${'$'.repeat(priceScore)}</span>` : ''}${score ? `<span class=\"tag rating\" style=\"background:${ratingColor}\" data-reason=\"${reasonTitle}\">${score}/10</span>` : ''}</div>` : ''}`;
       }
 
       function addMarkers(items){
@@ -2150,6 +2159,7 @@
           // Reset to show all original results
           if (originalFullResults.length > 0) {
             renderList(originalFullResults);
+            addMarkers(originalFullResults);
           }
         }
 
@@ -2209,6 +2219,7 @@
           // Reset to show all original results
           if (originalFullResults.length > 0) {
             renderList(originalFullResults);
+            addMarkers(originalFullResults);
           }
         }
 
@@ -2372,6 +2383,7 @@
           // Reset to show all original results
           if (originalFullResults.length > 0) {
             renderList(originalFullResults);
+            addMarkers(originalFullResults);
           }
         }
         queryStores(currentLat, currentLng);
@@ -2386,6 +2398,7 @@
           // Reset to show all original results
           if (originalFullResults.length > 0) {
             renderList(originalFullResults);
+            addMarkers(originalFullResults);
           }
         }
         queryStores(currentLat, currentLng);
@@ -2418,6 +2431,36 @@
         currentPage = 1;
         renderList(fullResults);
       });
+
+      // Function to get user location and update marker
+      function getUserLocationAndUpdateMarker() {
+        // Check if geolocation is supported
+        if (!isGeolocationSupported()) {
+          // Fallback to borough-based location if geolocation not supported
+          updateLocationFromBorough();
+          return;
+        }
+
+        // Better geolocation options for mobile
+        const geoOptions = {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        };
+
+        navigator.geolocation.getCurrentPosition(pos => {
+          const { latitude, longitude } = pos.coords;
+          currentLat = latitude; currentLng = longitude;
+          map.setView([latitude, longitude], DEFAULT_ZOOM);
+          if (myLocationMarker){ map.removeLayer(myLocationMarker); }
+          myLocationMarker = L.marker([latitude, longitude], { icon: createWebPMarkerIcon() }).addTo(map).bindPopup('My location');
+          myLocationMarker.openPopup();
+          queryStores(latitude, longitude);
+        }, (error) => {
+          // If geolocation fails, fallback to borough-based location
+          updateLocationFromBorough();
+        }, geoOptions);
+      }
 
       // Onboarding modal
       function renderOnboarding(){
@@ -2572,8 +2615,8 @@
           overlay.classList.add('fade-out');
           setTimeout(() => { try{ document.body.removeChild(overlay); } catch {} }, 800);
 
-          // Update location even if skipped (in case borough was selected before skipping)
-          updateLocationFromBorough();
+          // Try to get user location and update marker
+          getUserLocationAndUpdateMarker();
         });
         overlay.querySelector('#continueOnboard').addEventListener('click', () => {
           userGoal = selected || 'explore';
@@ -2593,8 +2636,8 @@
           // Prime coach with a welcome
           appendChat('assistant', `Got it! If your goal is ${userGoal.replace('_',' ')}, focus on protein, fiber, and low-cost basics. Ask me for a 5-minute meal idea!`);
 
-          // Update location and map view based on selected borough
-          updateLocationFromBorough();
+          // Try to get user location and update marker
+          getUserLocationAndUpdateMarker();
         });
       }
       renderOnboarding();
@@ -3164,11 +3207,13 @@
 
       function updateStoreListWithSearch() {
         if (storeSearchTerm.trim()) {
-          // Use filtered results for display
+          // Use filtered results for display and map markers
           renderList(filteredStoreResults);
+          addMarkers(filteredStoreResults);
         } else {
-          // Use original, unfiltered results
+          // Use original, unfiltered results for display and map markers
           renderList(originalFullResults);
+          addMarkers(originalFullResults);
         }
       }
 
