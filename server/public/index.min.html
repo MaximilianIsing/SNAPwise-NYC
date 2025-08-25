@@ -27,11 +27,11 @@
       queryStores(currentLat, currentLng);
     });
     // Light/Dark base layers
-    const tilesLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    const tilesLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}@1x.webp', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
     });
-    const tilesDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    const tilesDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}@1x.webp', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
     });
@@ -167,7 +167,7 @@
           if (myLocationMarker) {
             map.removeLayer(myLocationMarker);
           }
-          myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
+          myLocationMarker = L.marker([lat, lng], { icon: createWebPMarkerIcon() }).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
           myLocationMarker.openPopup();
           
           // Re-query stores with new location
@@ -401,6 +401,15 @@
       return L.divIcon({ className: '', html, iconSize: [size, size], iconAnchor: [size/2, size/2] });
     }
 
+    function createWebPMarkerIcon(){
+      return L.icon({
+        iconUrl: 'media-webp/marker.webp',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34]
+      });
+    }
+
     function createDiamondMarker(lat, lng, color){
       // Use a DivIcon to scale similarly to circle markers at various zoom levels
       const size = 24; // slightly larger to improve visibility
@@ -528,7 +537,7 @@
           <div class="legend-section">
             <div class="legend-item"><span class="shape circle"></span> Not Known Healthy</div>
             <div class="legend-item"><span class="shape diamond"></span> Known Healthy</div>
-            <div class="legend-item"><img alt="my loc" style="width:14px; height:22px" src="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png"/> My location</div>
+            <div class="legend-item"><img alt="my loc" style="width:14px; height:22px" src="media-webp/marker.webp"/> My location</div>
           </div>
         `;
       } else if (mode === 'price'){
@@ -543,7 +552,7 @@
           <div class="legend-section">
             <div class="legend-item"><span class="shape circle"></span> Not Known Healthy</div>
             <div class="legend-item"><span class="shape diamond"></span> Known Healthy</div>
-            <div class="legend-item"><img alt="my loc" style="width:14px; height:22px" src="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png"/> My location</div>
+            <div class="legend-item"><img alt="my loc" style="width:14px; height:22px" src="media-webp/marker.webp"/> My location</div>
           </div>
         `;
       } else {
@@ -558,7 +567,7 @@
           <div class="legend-section">
             <div class="legend-item"><span class="shape circle"></span> Not Known Healthy</div>
             <div class="legend-item"><span class="shape diamond"></span> Known Healthy</div>
-            <div class="legend-item"><img alt="my loc" style="width:14px; height:22px" src="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png"/> My location</div>
+            <div class="legend-item"><img alt="my loc" style="width:14px; height:22px" src="media-webp/marker.webp"/> My location</div>
           </div>
         `;
       }
@@ -855,7 +864,7 @@
         if (myLocationMarker){ map.removeLayer(myLocationMarker); }
         const zip = (document.getElementById('zip')?.value || '').trim();
         const zipSuffix = zip ? ` (ZIP ${zip})` : '';
-        myLocationMarker = L.marker([latitude, longitude]).addTo(map).bindPopup(`My location${zipSuffix}`);
+        myLocationMarker = L.marker([latitude, longitude], { icon: createWebPMarkerIcon() }).addTo(map).bindPopup(`My location${zipSuffix}`);
         myLocationMarker.openPopup();
         queryStores(latitude, longitude);
       }, (error) => {
@@ -902,7 +911,7 @@
         map.setView([lat, lng], DEFAULT_ZOOM);
         if (myLocationMarker){ map.removeLayer(myLocationMarker); }
         const zipSuffix = zip ? ` (ZIP ${zip})` : ''; 
-        myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location${zipSuffix}`);
+        myLocationMarker = L.marker([lat, lng], { icon: createWebPMarkerIcon() }).addTo(map).bindPopup(`My location${zipSuffix}`);
         myLocationMarker.openPopup();
         queryWithFallback(lat, lng);
       } catch (error) {
@@ -929,7 +938,7 @@
           currentLat = latitude; currentLng = longitude;
           map.setView([latitude, longitude], DEFAULT_ZOOM);
           if (myLocationMarker){ map.removeLayer(myLocationMarker); }
-          myLocationMarker = L.marker([latitude, longitude]).addTo(map).bindPopup('My location');
+          myLocationMarker = L.marker([latitude, longitude], { icon: createWebPMarkerIcon() }).addTo(map).bindPopup('My location');
           myLocationMarker.openPopup();
           queryStores(latitude, longitude);
           // Sync radius labels to units preference on first load
@@ -943,7 +952,7 @@
             map.setView([lat, lng], DEFAULT_ZOOM);
             // Always create/update the location marker when falling back to borough coordinates
             if (myLocationMarker){ map.removeLayer(myLocationMarker); }
-            myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
+            myLocationMarker = L.marker([lat, lng], { icon: createWebPMarkerIcon() }).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
             myLocationMarker.openPopup();
             queryWithFallback(lat, lng);
             // Sync radius labels to units preference on first load
@@ -955,13 +964,13 @@
               const [lat, lng] = await zipToLatLng(defaultZip);
               // Create location marker for this fallback case too
               if (myLocationMarker){ map.removeLayer(myLocationMarker); }
-              myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
+              myLocationMarker = L.marker([lat, lng], { icon: createWebPMarkerIcon() }).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
               myLocationMarker.openPopup();
               queryWithFallback(lat, lng);
             } catch {
               // Ultimate fallback - create marker at default coordinates
               if (myLocationMarker){ map.removeLayer(myLocationMarker); }
-              myLocationMarker = L.marker([40.758, -73.985]).addTo(map).bindPopup('My location (Default)');
+              myLocationMarker = L.marker([40.758, -73.985], { icon: createWebPMarkerIcon() }).addTo(map).bindPopup('My location (Default)');
               myLocationMarker.openPopup();
               queryWithFallback(40.758, -73.985);
             }
@@ -974,13 +983,13 @@
           const [lat, lng] = await zipToLatLng(defaultZip);
           // Create location marker for this fallback case too
           if (myLocationMarker){ map.removeLayer(myLocationMarker); }
-          myLocationMarker = L.marker([lat, lng]).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
+          myLocationMarker = L.marker([lat, lng], { icon: createWebPMarkerIcon() }).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
           myLocationMarker.openPopup();
           queryWithFallback(lat, lng);
         } catch {
           // Ultimate fallback - create marker at default coordinates
           if (myLocationMarker){ map.removeLayer(myLocationMarker); }
-          myLocationMarker = L.marker([40.758, -73.985]).addTo(map).bindPopup('My location (Default)');
+          myLocationMarker = L.marker([40.758, -73.985], { icon: createWebPMarkerIcon() }).addTo(map).bindPopup('My location (Default)');
           myLocationMarker.openPopup();
           queryWithFallback(40.758, -73.985);
         }

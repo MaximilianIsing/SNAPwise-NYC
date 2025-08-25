@@ -18,6 +18,16 @@ app.use(express.json());
 // Serve static client
 app.use('/', express.static(path.join(__dirname, 'public')));
 
+// Serve minified HTML as the main page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.min.html'));
+});
+
+// Redirect requests for index.html to the minified version
+app.get('/index.html', (req, res) => {
+  res.redirect('/');
+});
+
 // Data in-memory
 /** @type {Array<{
  * id: string,
