@@ -505,7 +505,7 @@
             <div
               style="position:absolute; top:6px; right:10px; font-size:10px; font-style:italic; color:var(--muted); pointer-events:none"
             >
-              v1.06
+              v1.07
             </div>
             <div
               class="muted"
@@ -2240,6 +2240,18 @@
             timeout: 15000,
             maximumAge: 60000
           };
+
+          const defaultZip = getDefaultZipForBorough()
+          if (defaultZip) {
+            zipInput.value = defaultZip;
+            const [lat, lng] = await zipToLatLng(defaultZip);
+            currentLat = lat; currentLng = lng;
+            map.setView([lat, lng], DEFAULT_ZOOM);
+            if (myLocationMarker){ map.removeLayer(myLocationMarker); }
+            myLocationMarker = L.marker([lat, lng], { icon: createWebPMarkerIcon() }).addTo(map).bindPopup(`My location (ZIP ${defaultZip})`);
+            myLocationMarker.openPopup();
+            queryWithFallback(lat, lng);
+          }
 
           navigator.geolocation.getCurrentPosition(pos => {
             const { latitude, longitude } = pos.coords;
