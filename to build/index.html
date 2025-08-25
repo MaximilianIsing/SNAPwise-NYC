@@ -221,7 +221,8 @@
           .onboard .radio-group label, .onboard .radio-group input{ cursor:pointer }
           .tracker-card{background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow:0 2px 8px rgba(15,23,42,0.04)}
           .section-title{font-weight:600; margin:0 0 8px 0}
-          .disclaimer{margin-left:auto; font-size:12px; color:var(--muted); white-space:normal; text-align:right}
+          .disclaimer{margin-left:auto; font-size:12px; color:var(--muted); white-space:normal; text-align:right; overflow:visible; text-overflow:clip}
+          .disclaimer-narrow{display:none}
           .cap-note{font-size:11px; color:var(--muted); margin-top:2px}
           .warning{background:var(--accent); border:1px solid var(--primary); border-radius:8px; padding:12px; margin:8px 0; color:var(--ink); font-weight:500}
           .warning .warning-icon{font-size:16px; margin-right:8px}
@@ -298,6 +299,11 @@
           /* Large tablets: narrow the sidebar */
           @media (max-width: 1200px){
             main{ grid-template-columns: 1fr 360px; }
+          }
+          /* Small desktop: switch to narrow disclaimer with line break */
+          @media (max-width: 1250px) {
+            .disclaimer-wide{ display:none }
+            .disclaimer-narrow{ display:block }
           }
           /* Tablets/phones: bottom-sheet panel over full-height map */
           @media (max-width: 900px){
@@ -479,11 +485,13 @@
             <option value="true">Only Known Healthy</option>
           </select>
           <button id="searchBtn" class="btn btn-primary">Search</button>
-          <button id="locBtn" class="btn btn-ghost">Use my location</button>
+          <button id="locBtn" class="btn btn-ghost">Use My Location</button>
         </div>
-        <div class="disclaimer">
-          *Please take all nutritional and dietary advice with caution. Times
-          shown are at walking pace but might be inaccurate.
+        <div class="disclaimer disclaimer-wide">
+          *Please take all nutritional and dietary advice with caution.
+        </div>
+        <div class="disclaimer disclaimer-narrow">
+          *Please take all nutritional and<br>dietary advice with caution.
         </div>
         <details class="settings" id="settings">
           <summary class="btn btn-primary btn-icon" title="Settings">
