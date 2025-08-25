@@ -13,7 +13,25 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, res, buf) => {
+    try {
+      JSON.parse(buf);
+    } catch (e) {
+      res.status(400).json({ error: 'Invalid JSON in request body' });
+      throw new Error('Invalid JSON');
+    }
+  }
+}));
+
+// Error handler for JSON parsing errors
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ error: 'Invalid JSON in request body' });
+  }
+  next();
+});
 
 // Serve static client
 app.use('/', express.static(path.join(__dirname, 'public')));
@@ -319,6 +337,12 @@ app.get('/zip/:zip', async (req, res) => {
 // Simple Chat proxy for nutrition advice
 app.post('/chat', async (req, res) => {
   try {
+    
+    // Validate request body
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({ error: 'Invalid request body - expected JSON object' });
+    }
+
     // Load API key from api_key.txt file
     let apiKey;
     try {
@@ -339,7 +363,24 @@ app.post('/chat', async (req, res) => {
       return res.status(500).json({ error: 'Could not read api_key.txt file' });
     }
 
-    const { messages, goal, context, responseLength } = req.body || {};
+    const { messages, goal, context, responseLength } = req.body;
+    
+    // Validate required fields
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'messages field is required and must be an array' });
+    }
+    
+    if (messages.length === 0) {
+      return res.status(400).json({ error: 'messages array cannot be empty' });
+    }
+    
+    // Log the most recent user question
+    const userMessages = messages.filter(msg => msg.role === 'user');
+    if (userMessages.length > 0) {
+      const latestQuestion = userMessages[userMessages.length - 1];
+      console.log('User question:', latestQuestion.content);
+    }
+    
     const length = String(responseLength || 'default');
     let lengthHint = '';
     let maxTokens = 300;
