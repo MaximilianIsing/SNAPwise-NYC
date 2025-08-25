@@ -1599,7 +1599,7 @@
                   ${score ? `<span class=\"tag rating\" data-reason=\"${reasonTitle}\" style=\"background:${ratingColor}\">${score}/10</span>` : ''}
                 </div>
                 <div style="display:flex; gap:6px; align-items:center;">
-                  <span class="tag ${s.isHealthyStore ? 'healthy' : 'snap'}">${s.isHealthyStore ? `<img src="media-webp/Check.webp" alt="✓" style="width:12px; height:12px; vertical-align:middle; margin-right:4px; display:inline-block; margin-top:-4px;"/>SNAP-Healthy` : 'SNAP'}</span>
+                  <span class="tag ${s.isHealthyStore ? 'healthy' : 'snap'}" data-tip="${s.isHealthyStore ? 'This store accepts SNAP benefits and is known healthy.' : 'This store accepts SNAP benefits.'}">${s.isHealthyStore ? `<img src="media-webp/Check.webp" alt="✓" style="width:12px; height:12px; vertical-align:middle; margin-right:4px; display:inline-block; margin-top:-4px;"/>SNAP-Healthy` : 'SNAP'}</span>
                 </div>
                 <a class="btn" href="https://www.google.com/maps/dir/?api=1&origin=${currentLat},${currentLng}&destination=${s.latitude},${s.longitude}" target="_blank" rel="noopener" style="padding: 4px 12px;">Route</a>
               </div>
@@ -2348,7 +2348,7 @@
         tipEl.style.display = 'none';
         tipVisible = false;
       }
-      // Delegate hover events for rating tags and known healthy check icon
+      // Delegate hover events for rating tags, known healthy check icon, and SNAP tags
       document.addEventListener('mouseover', (e) => {
         const target = /** @type {HTMLElement} */(e.target);
         if (!target || !target.classList) return;
@@ -2358,6 +2358,9 @@
         } else if (target.classList.contains('known-healthy')){
           const txt = target.getAttribute('data-tip') || 'Known Healthy Store';
           showTip(txt, target);
+        } else if (target.classList.contains('snap') || target.classList.contains('healthy')){
+          const txt = target.getAttribute('data-tip') || '';
+          if (txt){ showTip(txt, target); }
         }
       });
       // No cursor-follow; hide when pointer leaves the tag
@@ -2369,6 +2372,8 @@
           if (!related || !related.classList || !related.classList.contains('rating')) hideTip();
         } else if (from.classList.contains('known-healthy')){
           if (!related || !related.classList || !related.classList.contains('known-healthy')) hideTip();
+        } else if (from.classList.contains('snap') || from.classList.contains('healthy')){
+          if (!related || !related.classList || !related.classList.contains('snap') && !related.classList.contains('healthy')) hideTip();
         }
       });
 
