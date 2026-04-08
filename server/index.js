@@ -334,8 +334,50 @@ app.get('/zip/:zip', async (req, res) => {
   }
 });
 
+// Rate limiter for /chat — 20 requests per 2-minute window per IP
+const chatRateMap = new Map();
+const CHAT_RATE_WINDOW_MS = 2 * 60 * 1000;
+const CHAT_RATE_MAX = 20;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of chatRateMap) {
+    if (now - entry.windowStart >= CHAT_RATE_WINDOW_MS) chatRateMap.delete(ip);
+  }
+}, 60_000);
+
+function chatRateLimiter(req, res, next) {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  let entry = chatRateMap.get(ip);
+
+  if (!entry || now - entry.windowStart >= CHAT_RATE_WINDOW_MS) {
+    entry = { windowStart: now, count: 0 };
+    chatRateMap.set(ip, entry);
+  }
+
+  entry.count += 1;
+
+  const remaining = Math.max(0, CHAT_RATE_MAX - entry.count);
+  const resetAt = entry.windowStart + CHAT_RATE_WINDOW_MS;
+  res.set('X-RateLimit-Limit', String(CHAT_RATE_MAX));
+  res.set('X-RateLimit-Remaining', String(remaining));
+  res.set('X-RateLimit-Reset', String(Math.ceil(resetAt / 1000)));
+
+  if (entry.count > CHAT_RATE_MAX) {
+    const retryAfter = Math.ceil((resetAt - now) / 1000);
+    res.set('Retry-After', String(retryAfter));
+    return res.status(429).json({
+      error: 'Too many requests',
+      message: `Limit is ${CHAT_RATE_MAX} coach requests per ${CHAT_RATE_WINDOW_MS / 1000}s. Try again in ${retryAfter}s.`
+    });
+  }
+
+  next();
+}
+
 // Simple Chat proxy for nutrition advice
-app.post('/chat', async (req, res) => {
+app.post('/chat', chatRateLimiter, async (req, res) => {
   try {
     
     // Validate request body
