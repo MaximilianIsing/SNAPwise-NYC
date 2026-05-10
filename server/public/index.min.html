@@ -458,6 +458,73 @@
           @media (max-width: 900px) {
             .healthy-store-info{ display:none !important }
           }
+
+          /* Data freshness modal */
+          .data-info-modal{
+            display:none;
+            position:fixed;
+            inset:0;
+            z-index:999999999;
+            align-items:center;
+            justify-content:center;
+            background:rgba(15,23,42,0.45);
+            box-sizing:border-box;
+          }
+          .data-info-panel{
+            background:var(--white);
+            border-radius:16px;
+            padding:24px;
+            max-width:480px;
+            width:90%;
+            box-shadow:0 8px 32px rgba(15,23,42,0.18);
+            position:relative;
+            box-sizing:border-box;
+          }
+          .data-info-panel-head{
+            position:relative;
+            flex-shrink:0;
+            padding-right:36px;
+          }
+          .data-info-close{
+            position:absolute;
+            top:0;
+            right:0;
+            background:none;
+            border:none;
+            font-size:22px;
+            line-height:1;
+            cursor:pointer;
+            color:var(--muted);
+            padding:4px 8px;
+            margin:-4px -8px 0 0;
+          }
+          .data-info-panel-body{
+            color:var(--muted);
+            font-size:14px;
+            line-height:1.6;
+          }
+          @media (max-width: 900px){
+            .data-info-modal{
+              align-items:flex-start;
+              justify-content:center;
+              padding:max(12px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+              overflow-y:auto;
+              -webkit-overflow-scrolling:touch;
+            }
+            .data-info-panel{
+              max-height:calc(100dvh - max(12px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)) - 24px);
+              display:flex;
+              flex-direction:column;
+              overflow:hidden;
+              margin-bottom:8px;
+            }
+            .data-info-panel-body{
+              overflow-y:auto;
+              -webkit-overflow-scrolling:touch;
+              flex:1 1 auto;
+              min-height:0;
+            }
+          }
     </style>
   </head>
   <body>
@@ -3439,11 +3506,13 @@
     </script>
 
     <!-- Data Info Modal -->
-    <div id="dataInfoModal" style="display:none; position:fixed; inset:0; z-index:999999999; align-items:center; justify-content:center; background:rgba(15,23,42,0.45)" onclick="if(event.target===this)this.style.display='none'">
-      <div style="background:var(--white); border-radius:16px; padding:24px; max-width:480px; width:90%; box-shadow:0 8px 32px rgba(15,23,42,0.18); position:relative">
-        <button onclick="document.getElementById('dataInfoModal').style.display='none'" style="position:absolute; top:12px; right:14px; background:none; border:none; font-size:20px; cursor:pointer; color:var(--muted); line-height:1">&times;</button>
-        <h3 style="margin:0 0 12px; font-size:18px">How We Keep Our Data Up to Date</h3>
-        <div id="dataInfoContent" style="color:var(--muted); font-size:14px; line-height:1.6">
+    <div id="dataInfoModal" class="data-info-modal" onclick="if(event.target===this)this.style.display='none'">
+      <div class="data-info-panel" onclick="event.stopPropagation()">
+        <div class="data-info-panel-head">
+          <button type="button" class="data-info-close" onclick="document.getElementById('dataInfoModal').style.display='none'" aria-label="Close">&times;</button>
+          <h3 style="margin:0 0 12px; font-size:18px; padding-right:8px">How We Keep Our Data Up to Date</h3>
+        </div>
+        <div id="dataInfoContent" class="data-info-panel-body">
           <div style="text-align:center; margin-bottom:16px">
             <img src="media-webp/Lucas.webp" alt="Volunteer surveying SNAP locations" style="width:100%; max-width:360px; border-radius:12px">
             <p style="font-size:12px; color:var(--muted); font-style:italic; margin:8px 0 0">Lucas Shtainer, a volunteer, surveying a SNAP-accepting location</p>
