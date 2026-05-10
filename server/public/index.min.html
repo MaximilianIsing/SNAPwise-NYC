@@ -55,11 +55,11 @@
             --bg:#F2FBF6; --ink:#0F172A; --muted:#475569; --border:#E2E8F0; --white:#FFFFFF;
             --safe-top: env(safe-area-inset-top, 0px);
           }
-          html,body{height:100%; margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink)}
+          html,body{height:100%; margin:0; overflow:hidden; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink)}
           /* Font loading optimization - apply Fredoka only when loaded */
           .fonts-loaded header h1,
           .fonts-loaded .onboard .title-hero { font-family: 'Fredoka', Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-          .container{display:grid; grid-template-rows:auto 1fr; height:100%}
+          .container{display:grid; grid-template-rows:auto 1fr; height:100%; overflow:hidden}
           header{display:flex; gap:12px; align-items:center; padding:12px 16px; background:var(--white); border-bottom:1px solid var(--border)}
           header h1{font-size:20px; margin:0; font-weight:700; color:rgb(166,203,82)}
           header .badge{background:var(--accent); color:var(--ink); padding:4px 8px; border-radius:999px; font-size:12px}
@@ -70,7 +70,7 @@
           .controls input,.controls select{padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:var(--white)}
           .controls button{background:var(--primary); color:#fff; border:none; padding:10px 14px; border-radius:12px; cursor:pointer}
           .controls button:hover{background:var(--primary-dark)}
-          main{display:grid; grid-template-columns: 1fr 440px; gap:12px; padding:12px; background: var(--bg)}
+          main{display:grid; grid-template-columns: 1fr 440px; gap:12px; padding:12px; background: var(--bg); overflow:hidden}
           #map{width:100%; height:calc(100vh - 86px); border:1px solid var(--border); border-radius:16px; box-shadow:0 2px 8px rgba(15,23,42,0.06); position:relative}
           .panel{background:var(--white); border:1px solid var(--border); border-radius:16px; padding:12px; box-shadow:0 2px 8px rgba(15,23,42,0.06); display:flex; flex-direction:column; height:calc(100vh - 110px); overflow:hidden}
           /* Smoothly blend panel into dark background without white edges */
@@ -312,6 +312,8 @@
             header{ position:sticky; top:0; z-index:999999 }
             header{ flex-wrap:wrap; align-items:center }
             .disclaimer{ display:none }
+            #dataInfoLink{ display:none }
+            #dataInfoBtnMobile{ display:inline-flex !important }
             /* Remove padding so the map touches the edges and top under the header */
             main{ grid-template-columns: 1fr; grid-template-rows: auto 1fr; padding:0 }
             /* Map fills the full width and sits flush beneath the header */
@@ -486,6 +488,7 @@
           </select>
           <button id="searchBtn" class="btn btn-primary">Search</button>
           <button id="locBtn" class="btn btn-ghost">Use My Location</button>
+          <span id="dataInfoLink" style="font-style:italic; color:var(--muted); font-size:13px; cursor:pointer; white-space:nowrap; margin-left:4px; text-decoration:underline" onclick="document.getElementById('dataInfoModal').style.display='flex'">How we keep our data up to date</span>
         </div>
         <div class="disclaimer disclaimer-wide">
           *Please take all nutritional and dietary advice with caution.
@@ -614,6 +617,7 @@
           </div>
         </details>
       </header>
+      <span id="dataInfoBtnMobile" title="How we keep our data up to date" style="display:none; position:fixed; top:20px; right:61px; font-style:italic; font-size:15px; color:var(--muted); text-decoration:underline; white-space:nowrap; cursor:pointer; z-index:999999999" onclick="document.getElementById('dataInfoModal').style.display='flex'">Our data</span>
 
       <!-- Mobile-only settings panel - positioned outside header for independent layering -->
       <details class="settings-mobile" id="settings-mobile">
@@ -3433,5 +3437,22 @@
         }
       });
     </script>
+
+    <!-- Data Info Modal -->
+    <div id="dataInfoModal" style="display:none; position:fixed; inset:0; z-index:999999999; align-items:center; justify-content:center; background:rgba(15,23,42,0.45)" onclick="if(event.target===this)this.style.display='none'">
+      <div style="background:var(--white); border-radius:16px; padding:24px; max-width:480px; width:90%; box-shadow:0 8px 32px rgba(15,23,42,0.18); position:relative">
+        <button onclick="document.getElementById('dataInfoModal').style.display='none'" style="position:absolute; top:12px; right:14px; background:none; border:none; font-size:20px; cursor:pointer; color:var(--muted); line-height:1">&times;</button>
+        <h3 style="margin:0 0 12px; font-size:18px">How We Keep Our Data Up to Date</h3>
+        <div id="dataInfoContent" style="color:var(--muted); font-size:14px; line-height:1.6">
+          <div style="text-align:center; margin-bottom:16px">
+            <img src="media-webp/Lucas.webp" alt="Volunteer surveying SNAP locations" style="width:100%; max-width:360px; border-radius:12px">
+            <p style="font-size:12px; color:var(--muted); font-style:italic; margin:8px 0 0">Lucas Shtainer, a volunteer, surveying a SNAP-accepting location</p>
+          </div>
+          <p style="margin:0 0 10px">SNAPwise relies on a combination of dedicated volunteers and official data sources to keep our store information accurate and current.</p>
+          <p style="margin:0 0 10px">Our volunteers conduct routine in-person surveys of SNAP-accepting locations across New York City, verifying store details, product availability, and overall condition. These on-the-ground checks help us catch changes that digital records often miss.</p>
+          <p style="margin:0">We also integrate data from government databases and public APIs, including the USDA SNAP Retailer Locator and NYC Open Data, to ensure broad coverage and keep pace with newly authorized stores, closures, and updated addresses.</p>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
