@@ -12,25 +12,51 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json({
-  limit: '1mb',
-  verify: (req, res, buf) => {
+// Behind Render's reverse proxy: trust exactly one hop so req.ip is the real
+// client IP (needed for the /chat rate limiter to bucket per-user, not globally).
+app.set('trust proxy', 1);
+
+// Resolve the OpenAI API key once at startup: env var first, then Render's
+// secret-file path, then a local api_key.txt for development.
+const OPENAI_API_KEY = (() => {
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY.trim();
+  const candidates = ['/etc/secrets/api_key.txt', path.resolve(__dirname, '..', 'api_key.txt')];
+  for (const p of candidates) {
     try {
-      JSON.parse(buf);
-    } catch (e) {
-      res.status(400).json({ error: 'Invalid JSON in request body' });
-      throw new Error('Invalid JSON');
-    }
+      const k = fs.readFileSync(p, 'utf8').trim();
+      if (k) return k;
+    } catch {}
   }
+  return null;
+})();
+
+// Restrict CORS to known origins. Production serves the client same-origin
+// (so no CORS is needed there); file:// dev sends a null Origin, which we allow.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    // No Origin = same-origin or a non-browser client (curl); 'null' = a file:// dev page.
+    if (!origin || origin === 'null' || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    return cb(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST'],
 }));
 
-// Error handler for JSON parsing errors
+app.use(express.json({ limit: '1mb' }));
+
+// Finalize body-parser errors: it throws a SyntaxError (status 400) for
+// malformed JSON, and an 'entity.too.large' error for bodies over the limit.
 app.use((err, req, res, next) => {
-  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+  if (!err) return next();
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body too large' });
+  }
+  if (err instanceof SyntaxError || err.status === 400) {
     return res.status(400).json({ error: 'Invalid JSON in request body' });
   }
-  next();
+  return next(err);
 });
 
 // Serve static client
@@ -231,8 +257,9 @@ app.get('/stores', (req, res) => {
   const storeType = String(req.query.storeType || '').trim();
   // Parse limit, support 'unlimited' for no cap
   const rawLimit = String(req.query.limit || '200');
-  let limit = rawLimit.toLowerCase() === 'unlimited' ? Infinity : parseInt(rawLimit, 10);
-  if (!Number.isFinite(limit) || limit <= 0) limit = 200;
+  const unlimited = rawLimit.toLowerCase() === 'unlimited';
+  let limit = unlimited ? Infinity : parseInt(rawLimit, 10);
+  if (!unlimited && (!Number.isFinite(limit) || limit <= 0)) limit = 200;
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return res.status(400).json({ error: 'lat and lng are required numbers' });
@@ -284,7 +311,10 @@ app.get('/zip/:zip', async (req, res) => {
     // Third try: Use OpenStreetMap Nominatim API (free, no key required)
     try {
       const nominatimUrl = `https://nominatim.openstreetmap.org/search?postalcode=${zip}&country=US&format=json&limit=1`;
-      const nominatimRes = await fetch(nominatimUrl);
+      // Nominatim's usage policy requires an identifying User-Agent or requests are blocked.
+      const nominatimRes = await fetch(nominatimUrl, {
+        headers: { 'User-Agent': 'SNAPwise-NYC/1.0 (SNAP store locator)' }
+      });
       if (nominatimRes.ok) {
         const nominatimData = await nominatimRes.json();
         if (nominatimData.length > 0) {
@@ -385,25 +415,10 @@ app.post('/chat', chatRateLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Invalid request body - expected JSON object' });
     }
 
-    // Load API key from api_key.txt file
-    let apiKey;
-    try {
-      // Try Render's secret file path first, then fallback to local path
-      const renderPath = '/etc/secrets/api_key.txt';
-      const localPath = path.resolve(__dirname, '..', 'api_key.txt');
-      
-      if (fs.existsSync(renderPath)) {
-        apiKey = fs.readFileSync(renderPath, 'utf8').trim();
-      } else {
-        apiKey = fs.readFileSync(localPath, 'utf8').trim();
-      }
-      
-      if (!apiKey) {
-        return res.status(500).json({ error: 'API key file is empty' });
-      }
-    } catch (err) {
-      return res.status(500).json({ error: 'Could not read api_key.txt file' });
+    if (!OPENAI_API_KEY) {
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
+    const apiKey = OPENAI_API_KEY;
 
     const { messages, goal, context, responseLength } = req.body;
     
@@ -445,7 +460,7 @@ app.post('/chat', chatRateLimiter, async (req, res) => {
     
     // Add store-specific guidance if stores are available
     if (context && context.stores && Array.isArray(context.stores) && context.stores.length > 0) {
-      systemContent += `\n\nIMPORTANT: You have access to information about ${context.stores.length} stores near the user's location. When the user asks about where to find specific foods, stores, or shopping locations, use this store data to provide specific, actionable recommendations. Include store names, addresses, distances, and any relevant details like store types, health ratings, and price ratings. Make your answers location-specific and practical.\n\PRICE RATING SCALE: Price ratings range from 1-5 where 1 = most affordable/best value and 5 = most expensive/least value. Use this to help users find budget-friendly options.\n\nSTORE LINKING: When mentioning specific store names that exist in the user's area, surround them with %l markers like this: %lStore Name%l. This will automatically make the store name clickable and show it on the map. For example: "You can find fresh produce at %lLa Mexicana Fruit & Grocery Corp%l which is only 0.3 miles away."`;
+      systemContent += `\n\nIMPORTANT: You have access to information about ${context.stores.length} stores near the user's location. When the user asks about where to find specific foods, stores, or shopping locations, use this store data to provide specific, actionable recommendations. Include store names, addresses, distances, and any relevant details like store types, health ratings, and price ratings. Make your answers location-specific and practical.\n\nPRICE RATING SCALE: Price ratings range from 1-5 where 1 = most affordable/best value and 5 = most expensive/least value. Use this to help users find budget-friendly options.\n\nSTORE LINKING: When mentioning specific store names that exist in the user's area, surround them with %l markers like this: %lStore Name%l. This will automatically make the store name clickable and show it on the map. For example: "You can find fresh produce at %lLa Mexicana Fruit & Grocery Corp%l which is only 0.3 miles away."`;
     }
     
     const system = {
@@ -493,7 +508,8 @@ app.post('/chat', chatRateLimiter, async (req, res) => {
 
     if (!response.ok) {
       const text = await response.text();
-      return res.status(500).json({ error: 'OpenAI error', detail: text });
+      console.error('OpenAI error:', response.status, text);
+      return res.status(502).json({ error: 'Upstream AI service error' });
     }
     const data = await response.json();
     // console.log('Response Content:', data.choices?.[0]?.message?.content || 'No content');

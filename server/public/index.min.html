@@ -646,7 +646,7 @@
                   class="btn"
                   style="flex:1 1 0; border:none; border-radius:0"
                 >
-                  Extensize
+                  Comprehensive
                 </button>
               </div>
             </div>
@@ -699,7 +699,7 @@
           <div
             style="position:absolute; top:6px; right:10px; font-size:10px; font-style:italic; color:var(--muted); pointer-events:none"
           >
-            v1.05
+            v1.07
           </div>
           <div
             class="muted"
@@ -770,7 +770,7 @@
                 class="btn"
                 style="flex:1 1 0; border:none; border-radius:0"
               >
-                Extensize
+                Comprehensive
               </button>
             </div>
           </div>
@@ -803,7 +803,7 @@
             Return to Home Screen
           </button>
           <div style="text-align:center; font-size:10px; font-style:italic; color:var(--muted); margin-top:4px">
-            mising26@cgps.org for inquiries
+            maximilianbising@gmail.com for inquiries
           </div>
         </div>
       </details>
@@ -1596,9 +1596,9 @@
             return (a.distance_m || Infinity) - (b.distance_m || Infinity);
           }
                 if (sortBy === 'price'){
-          const ar = (typeof a.aiEconomyScore === 'number' && isFinite(a.aiEconomyScore)) ? a.aiEconomyScore : -Infinity;
-          const br = (typeof b.aiEconomyScore === 'number' && isFinite(b.aiEconomyScore)) ? b.aiEconomyScore : -Infinity;
-          if (br !== ar) return ar - br; // lowest first (cheaper is better)
+          const ar = (typeof a.aiEconomyScore === 'number' && isFinite(a.aiEconomyScore)) ? a.aiEconomyScore : Infinity;
+          const br = (typeof b.aiEconomyScore === 'number' && isFinite(b.aiEconomyScore)) ? b.aiEconomyScore : Infinity;
+          if (br !== ar) return ar - br; // lowest first (cheaper is better); stores without a price sort last
           return (a.distance_m || Infinity) - (b.distance_m || Infinity);
         }
           // default distance
@@ -1639,7 +1639,6 @@
           pageInfo.textContent = '0 / 0';
           return;
         }
-        const start = (currentPage - 1) * pageSize;
         const totalPages = Math.max(1, Math.ceil(total / pageSize));
         if (currentPage > totalPages) currentPage = totalPages;
         if (currentPage < 1) currentPage = 1;
@@ -1660,13 +1659,13 @@
           el.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
               <div>
-                <div style="font-weight:600;">${s.name}</div>
-                <div class="muted">${s.address}, ${s.city} ${s.zip}</div>
-                <div class="muted">${s.storeType} · ${formatDistance(s.distance_m)} · ~${formatWalkTime(s.distance_m)}</div>
+                <div style="font-weight:600;">${escapeHtml(s.name)}</div>
+                <div class="muted">${escapeHtml(s.address)}, ${escapeHtml(s.city)} ${escapeHtml(s.zip)}</div>
+                <div class="muted">${escapeHtml(s.storeType)} · ${formatDistance(s.distance_m)} · ~${formatWalkTime(s.distance_m)}</div>
               </div>
               <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
                 <div style="display:flex; gap:6px; align-items:center;">
-                  ${s.aiEconomyScore ? `<span class=\"tag rating price\" data-reason=\"${s.aiEconomyReason || 'No price reason provided'}\" data-unfilled=\"${'$'.repeat(5 - s.aiEconomyScore)}\" style=\"background: ${s.aiEconomyScore === 1 ? '#90EE90' : s.aiEconomyScore === 2 ? '#32CD32' : s.aiEconomyScore === 3 ? '#FFA500' : s.aiEconomyScore === 4 ? '#FF8C00' : '#FF4500'};\">${'$'.repeat(s.aiEconomyScore)}</span>` : ''}
+                  ${s.aiEconomyScore ? `<span class=\"tag rating price\" data-reason=\"${escapeAttr(s.aiEconomyReason || 'No price reason provided')}\" data-unfilled=\"${'$'.repeat(5 - s.aiEconomyScore)}\" style=\"background: ${s.aiEconomyScore === 1 ? '#90EE90' : s.aiEconomyScore === 2 ? '#32CD32' : s.aiEconomyScore === 3 ? '#FFA500' : s.aiEconomyScore === 4 ? '#FF8C00' : '#FF4500'};\">${'$'.repeat(s.aiEconomyScore)}</span>` : ''}
                   ${score ? `<span class=\"tag rating\" data-reason=\"${reasonTitle}\" style=\"background:${ratingColor}\">${score}/10</span>` : ''}
                 </div>
                 <div style="display:flex; gap:6px; align-items:center;">
@@ -1986,14 +1985,26 @@
           .replace(/[\r\n]+/g, ' ');
       }
 
+      // Escape text for safe use as HTML element content (store data comes from
+      // the server CSV and is interpolated into innerHTML below).
+      function escapeHtml(text){
+        const s = String(text == null ? '' : text);
+        return s
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
       function getMagnifyIcon(){
         return document.body.classList.contains('dark') ? 'media-webp/Magnifying Glass Dark.webp' : 'media-webp/Magnifying Glass Light.webp';
       }
 
       function buildPopupHtml(s){
         const popupTitle = s.isHealthyStore
-          ? `<img src="media-webp/Check.webp" class="known-healthy" data-tip="Known Healthy Store" alt="Healthy" style="width:14px; height:14px; vertical-align:middle; margin-right:4px"/><strong>${s.name}</strong>`
-          : `<strong>${s.name}</strong>`;
+          ? `<img src="media-webp/Check.webp" class="known-healthy" data-tip="Known Healthy Store" alt="Healthy" style="width:14px; height:14px; vertical-align:middle; margin-right:4px"/><strong>${escapeHtml(s.name)}</strong>`
+          : `<strong>${escapeHtml(s.name)}</strong>`;
         const timeText = formatWalkTime(s.distance_m);
         const score = (typeof s.aiScore === 'number' && isFinite(s.aiScore)) ? Math.max(1, Math.min(10, Math.round(s.aiScore))) : null;
         const ratingColor = score ? scoreToColor(score) : null;
@@ -2001,7 +2012,7 @@
                 const priceScore = (typeof s.aiEconomyScore === 'number' && isFinite(s.aiEconomyScore)) ? Math.max(1, Math.min(5, Math.round(s.aiEconomyScore))) : null;
           const priceReason = (typeof s.aiEconomyReason === 'string' && s.aiEconomyReason.trim()) ? escapeAttr(s.aiEconomyReason) : 'No price reason provided';
 
-                return `${popupTitle} <button class="icon-btn" data-ask="${encodeURIComponent(s.name)}" title="Ask coach about this place"><img data-magnify="1" src="${getMagnifyIcon()}" alt="Ask" style="width:12px; height:12px; vertical-align:middle"/></button><br/>${s.address}<br/>${s.city} ${s.zip}<br/><strong>Store type:</strong> ${s.storeType || 'N/A'}<br/><strong>Distance: </strong>${formatDistance(s.distance_m)}${timeText ? ` · ~${timeText}` : ''}${score || priceScore ? `<br/><div style="display:flex; gap:4px; margin:4px 0;">${priceScore ? `<span class=\"tag rating price\" data-reason=\"${priceReason}\" data-unfilled=\"${'$'.repeat(5 - priceScore)}\" style=\"background: ${priceScore === 1 ? '#90EE90' : priceScore === 2 ? '#32CD32' : priceScore === 3 ? '#FFA500' : priceScore === 4 ? '#FF8C00' : '#FF4500'};\">${'$'.repeat(priceScore)}</span>` : ''}${score ? `<span class=\"tag rating\" style=\"background:${ratingColor}\" data-reason=\"${reasonTitle}\">${score}/10</span>` : ''}</div>` : ''}`;
+                return `${popupTitle} <button class="icon-btn" data-ask="${encodeURIComponent(s.name)}" title="Ask coach about this place"><img data-magnify="1" src="${getMagnifyIcon()}" alt="Ask" style="width:12px; height:12px; vertical-align:middle"/></button><br/>${escapeHtml(s.address)}<br/>${escapeHtml(s.city)} ${escapeHtml(s.zip)}<br/><strong>Store type:</strong> ${escapeHtml(s.storeType || 'N/A')}<br/><strong>Distance: </strong>${formatDistance(s.distance_m)}${timeText ? ` · ~${timeText}` : ''}${score || priceScore ? `<br/><div style="display:flex; gap:4px; margin:4px 0;">${priceScore ? `<span class=\"tag rating price\" data-reason=\"${priceReason}\" data-unfilled=\"${'$'.repeat(5 - priceScore)}\" style=\"background: ${priceScore === 1 ? '#90EE90' : priceScore === 2 ? '#32CD32' : priceScore === 3 ? '#FFA500' : priceScore === 4 ? '#FF8C00' : '#FF4500'};\">${'$'.repeat(priceScore)}</span>` : ''}${score ? `<span class=\"tag rating\" style=\"background:${ratingColor}\" data-reason=\"${reasonTitle}\">${score}/10</span>` : ''}</div>` : ''}`;
       }
 
       function addMarkers(items){
@@ -2127,7 +2138,7 @@
         if (currentHighlightedMarker === marker) return;
         resetCurrentHighlight();
         try {
-          HIGHLIGHT_SIZE_INCREASE = 25;
+          const HIGHLIGHT_SIZE_INCREASE = 25;
           if (marker.__type === 'circle'){
             const base = typeof marker.__baseSize === 'number' ? marker.__baseSize : 22;
             const color = marker.__color || '#5AC68A';
@@ -2154,7 +2165,6 @@
         const data = await res.json();
         addMarkers(data);
         renderList(data);
-        if (data.length){ map.setView([data[0].latitude, data[0].longitude], map.getZoom()); }
           return data;
         }catch{
           renderList([]);
@@ -2917,12 +2927,13 @@
 
         // Look for AI-marked store names using %lstore name%l or **store name** format
         const linkPattern = /%l([^%]+)%l|\*\*([^*]+)\*\*/g;
-        let match;
         let hasLinkChanges = false;
 
-        while ((match = linkPattern.exec(modifiedHtml)) !== null) {
+        // Single-pass replace: mutating modifiedHtml inside an .exec() loop
+        // desyncs the regex lastIndex and skips/double-processes matches.
+        modifiedHtml = modifiedHtml.replace(linkPattern, (full, g1, g2) => {
           // Extract store name from either format (%l or **)
-          const storeName = (match[1] || match[2]).trim();
+          const storeName = (g1 || g2).trim();
 
           // Decode HTML entities (like &amp; -> &)
           const decodedStoreName = decodeHTMLEntities(storeName);
@@ -2952,17 +2963,16 @@
           }
 
           if (store) {
-            // Create the clickable link HTML
-            const linkHtml = `<span class="store-link" style="color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 500;" title="Click to view ${store.name} on map" data-store-id="${store.id}">${storeName}</span>`;
-
-            // Replace the pattern with the link
-            modifiedHtml = modifiedHtml.replace(match[0], linkHtml);
             hasLinkChanges = true;
-          } else {
-            // If no store found, just remove the markers but keep the text
-            modifiedHtml = modifiedHtml.replace(match[0], storeName);
+            // store.name / store.id come from the CSV and are injected into HTML
+            // that is re-assigned to innerHTML below (after DOMPurify already ran),
+            // so they must be escaped here. storeName is text taken from the
+            // already-sanitized chat HTML, so it is kept as-is.
+            return `<span class="store-link" style="color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 500;" title="Click to view ${escapeAttr(store.name)} on map" data-store-id="${escapeAttr(store.id)}">${storeName}</span>`;
           }
-        }
+          // If no store found, just remove the markers but keep the text
+          return storeName;
+        });
 
         if (hasLinkChanges) {
           hasChanges = true;
@@ -3176,11 +3186,9 @@
           }
         });
 
-        // Clear store context when ZIP code changes
-        zipInput.addEventListener('input', () => {
-          // Clear store context so coach uses new location data
-          clearStoreContext();
-        });
+        // Store context is cleared on an actual search / location change
+        // (searchBtn / locBtn), not on every ZIP keystroke — clearing per
+        // keystroke wiped the visible results and the coach's store context.
       })();
       // Voice input
       // Speech input removed. Keep guard if re-enabled in the future.
@@ -3197,7 +3205,7 @@
         const day = state[todayKey()] || { meals:[], totals:{cal:0, protein:0} };
         document.getElementById('calTarget').value = state.calTarget || '';
         document.getElementById('proteinTarget').value = state.proteinTarget || '';
-        document.getElementById('mealList').innerHTML = day.meals.map(m => `<div class="muted">${m.name}: ${m.cal} cal, ${m.protein}g</div>`).join('');
+        document.getElementById('mealList').innerHTML = day.meals.map(m => `<div class="muted">${escapeHtml(m.name)}: ${m.cal} cal, ${m.protein}g</div>`).join('');
         const calT = parseInt(state.calTarget || '0', 10);
         const proT = parseInt(state.proteinTarget || '0', 10);
         document.getElementById('todayTotals').textContent = `Calories: ${day.totals.cal}${calT?` / ${calT}`:''} · Protein: ${day.totals.protein}g${proT?` / ${proT}g`:''}`;
@@ -3316,18 +3324,6 @@
           });
         }
       });
-
-      // Override the existing updateStoreList function to handle search
-      const originalUpdateStoreList = window.updateStoreList;
-      window.updateStoreList = function() {
-        if (storeSearchTerm.trim()) {
-          updateStoreListWithSearch();
-        } else {
-          if (originalUpdateStoreList) {
-            originalUpdateStoreList();
-          }
-        }
-      };
 
       // Sync settings between header and mobile versions
       document.addEventListener('DOMContentLoaded', function() {

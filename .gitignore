@@ -1,6 +1,10 @@
-# Ignore all text files
-*.txt
+# Secrets — never commit the API key (explicit, so renames/new docs aren't silently ignored)
+api_key.txt
+/etc/secrets/
 
+# Python
+__pycache__/
+*.py[cod]
 
 # Node
 node_modules/

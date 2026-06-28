@@ -1,4 +1,5 @@
 import json
+import math
 import re
 import time
 from typing import Optional
@@ -126,23 +127,24 @@ def rate_stores_with_ai(
             
             # Process economy rating
             economy_score = j.get("economy_score")
-            if row.get("Store_Type") == "Restaurant Meals Program":
-                economy_score += IS_RESTAURANT_BONUS
-            elif row.get("Store_Type") == "Grocery Store":
-                economy_score += IS_GROCERY_BONUS
+            if isinstance(economy_score, (int, float)) and math.isfinite(economy_score):
+                if row.get("Store_Type") == "Restaurant Meals Program":
+                    economy_score += IS_RESTAURANT_BONUS
+                elif row.get("Store_Type") == "Grocery Store":
+                    economy_score += IS_GROCERY_BONUS
             economy_reason = j.get("economy_reason", "")
             
             # Validate and set health score
-            if isinstance(health_score, (int, float)):
+            if isinstance(health_score, (int, float)) and math.isfinite(health_score):
                 health_score_int = int(max(1, min(10, round(health_score))))
                 df.at[i, "AI_Health_Score"] = health_score_int
                 df.at[i, "AI_Health_Reason"] = str(health_reason)[:240]
             else:
                 df.at[i, "AI_Health_Score"] = 5
                 df.at[i, "AI_Health_Reason"] = "No AI health reason provided"
-            
+
             # Validate and set economy score
-            if isinstance(economy_score, (int, float)):
+            if isinstance(economy_score, (int, float)) and math.isfinite(economy_score):
                 economy_score_int = int(max(1, min(5, round(economy_score))))
                 df.at[i, "AI_Economy_Score"] = economy_score_int
                 df.at[i, "AI_Economy_Reason"] = str(economy_reason)[:240]
@@ -200,8 +202,8 @@ OPENAI_API_KEY = ""                                # Paste your API key here (or
 MAX_NUM_STORES = 0                                    # 0 = rate all rows; otherwise only first N rows
 AI_RATE_DELAY = 0.15                                # seconds between API calls
 IS_HEALTHY_BONUS = 2                                # number added to health score if healthy
-IS_GROCERY_BONUS = -1                                # number added to health score if grocery
-IS_RESTAURANT_BONUS = 0                                # number added to health score if restaurant
+IS_GROCERY_BONUS = -1                                # number added to economy score if grocery
+IS_RESTAURANT_BONUS = 0                                # number added to economy score if restaurant
 
 
 if not OPENAI_API_KEY:
