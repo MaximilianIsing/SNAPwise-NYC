@@ -36,6 +36,13 @@
       sizes="180x180"
       href="media-webp/icons/IconCover180x180.webp"
     />
+    <!-- PWA: installable + offline-capable -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#5AC68A" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="SNAPwise" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -1389,6 +1396,85 @@
       const API_BASE = (location.protocol === 'file:') ? 'http://localhost:3000' : '';
       const DEFAULT_ZOOM = 16;
 
+      // ---- PWA: register the service worker (offline + installable) ----
+      if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+
+      // ---- Offline data: cache the full store list and search it locally ----
+      let __allStores = null;
+      async function getAllStores(){
+        if (__allStores) return __allStores;
+        const res = await fetch(`${API_BASE}/stores/all`);
+        if (!res.ok) throw new Error('no offline data');
+        __allStores = await res.json();
+        return __allStores;
+      }
+      function haversineMetersClient(lat1, lon1, lat2, lon2){
+        const toRad = (d) => d * Math.PI / 180;
+        const R = 6371000;
+        const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+      async function offlineStores(lat, lng, radius, healthy, limit){
+        const all = await getAllStores();
+        let list = all;
+        if (healthy === 'true') list = list.filter(s => s.isHealthyStore);
+        else if (healthy === 'false') list = list.filter(s => !s.isHealthyStore);
+        list = list
+          .map(s => ({ ...s, distance_m: haversineMetersClient(lat, lng, s.latitude, s.longitude) }))
+          .filter(s => s.distance_m <= radius)
+          .sort((a, b) => a.distance_m - b.distance_m);
+        if (Number.isFinite(limit)) list = list.slice(0, limit);
+        return list;
+      }
+      async function offlineZipCentroid(zip){
+        const all = await getAllStores();
+        const z = String(zip).replace(/[^0-9]/g, '').slice(0, 5).padStart(5, '0');
+        const inZip = all.filter(s => s.zip === z);
+        if (!inZip.length) throw new Error('zip not found offline');
+        const lat = inZip.reduce((a, s) => a + s.latitude, 0) / inZip.length;
+        const lng = inZip.reduce((a, s) => a + s.longitude, 0) / inZip.length;
+        return [lat, lng];
+      }
+      // Online/offline indicator + "Install app" button (injected, no markup needed)
+      (function(){
+        if (!document.body) return;
+        const badge = document.createElement('div');
+        badge.id = 'offlineBadge';
+        badge.textContent = 'Offline — showing saved data';
+        badge.style.cssText = 'position:fixed; top:calc(var(--header-h,64px) + 8px); left:50%; transform:translateX(-50%); z-index:2147483646; background:#0F172A; color:#fff; padding:7px 14px; border-radius:999px; font-size:13px; box-shadow:0 4px 14px rgba(15,23,42,.25); display:none; pointer-events:none';
+        document.body.appendChild(badge);
+        const refresh = () => { badge.style.display = navigator.onLine ? 'none' : 'block'; };
+        window.addEventListener('online', refresh);
+        window.addEventListener('offline', refresh);
+        refresh();
+        window.__setOfflineBadge = (off) => { badge.style.display = off ? 'block' : 'none'; };
+
+        let deferredPrompt = null;
+        const installBtn = document.createElement('button');
+        installBtn.id = 'installBtn';
+        installBtn.type = 'button';
+        installBtn.textContent = 'Install app';
+        installBtn.style.cssText = 'position:fixed; top:calc(var(--header-h,64px) + 8px); left:12px; z-index:2147483646; background:#5AC68A; color:#fff; border:none; padding:8px 14px; border-radius:12px; font-size:14px; cursor:pointer; box-shadow:0 4px 14px rgba(15,23,42,.2); display:none';
+        document.body.appendChild(installBtn);
+        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; installBtn.style.display = 'inline-flex'; });
+        installBtn.addEventListener('click', async () => {
+          if (!deferredPrompt) return;
+          installBtn.style.display = 'none';
+          deferredPrompt.prompt();
+          try { await deferredPrompt.userChoice; } catch {}
+          deferredPrompt = null;
+        });
+        window.addEventListener('appinstalled', () => { installBtn.style.display = 'none'; });
+
+        // Warm the offline dataset while online so offline works on first try.
+        if (navigator.onLine) setTimeout(() => { getAllStores().catch(() => {}); }, 3000);
+      })();
+
       // Font loading optimization - detect when Fredoka font is loaded
       (function() {
         if ('fonts' in document) {
@@ -2163,12 +2249,22 @@
           const res = await fetch(API_BASE + url);
           if (!res.ok) throw new Error('fetch failed');
         const data = await res.json();
+        if (window.__setOfflineBadge && navigator.onLine) window.__setOfflineBadge(false);
         addMarkers(data);
         renderList(data);
           return data;
         }catch{
-          renderList([]);
-          return [];
+          // Offline / server unreachable: search the cached full dataset locally.
+          try{
+            const data = await offlineStores(parseFloat(lat), parseFloat(lng), parseFloat(radius), healthy, limit);
+            if (window.__setOfflineBadge) window.__setOfflineBadge(true);
+            addMarkers(data);
+            renderList(data);
+            return data;
+          }catch{
+            renderList([]);
+            return [];
+          }
         }
       }
 
@@ -2197,7 +2293,12 @@
           const j = await res.json();
           return [j.latitude, j.longitude];
         }catch{
-          throw new Error('Invalid ZIP code. Please enter a valid NYC area ZIP code.');
+          // Offline fallback: derive a centroid from cached stores in this ZIP.
+          try{
+            return await offlineZipCentroid(zip);
+          }catch{
+            throw new Error('Invalid ZIP code. Please enter a valid NYC area ZIP code.');
+          }
         }
       }
 

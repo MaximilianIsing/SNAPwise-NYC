@@ -288,6 +288,13 @@ app.get('/stores', (req, res) => {
   res.json(withDistance);
 });
 
+// Full dataset for offline / PWA use — the client computes nearby stores
+// locally from this when the network is unavailable.
+app.get('/stores/all', (_req, res) => {
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json(stores);
+});
+
 // Enhanced ZIP code lookup with multiple fallback sources
 app.get('/zip/:zip', async (req, res) => {
   try {
