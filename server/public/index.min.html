@@ -1446,22 +1446,51 @@
         const badge = document.createElement('div');
         badge.id = 'offlineBadge';
         badge.textContent = 'Offline — showing saved data';
-        badge.style.cssText = 'position:fixed; top:calc(var(--header-h,64px) + 8px); left:50%; transform:translateX(-50%); z-index:2147483646; background:#0F172A; color:#fff; padding:7px 14px; border-radius:999px; font-size:13px; box-shadow:0 4px 14px rgba(15,23,42,.25); display:none; pointer-events:none';
+        badge.style.cssText = 'position:fixed; left:12px; z-index:4000; background:#0F172A; color:#fff; padding:7px 14px; border-radius:999px; font-size:13px; box-shadow:0 4px 14px rgba(15,23,42,.25); display:none; pointer-events:none; max-width:calc(100vw - 24px)';
         document.body.appendChild(badge);
-        const refresh = () => { badge.style.display = navigator.onLine ? 'none' : 'block'; };
-        window.addEventListener('online', refresh);
-        window.addEventListener('offline', refresh);
-        refresh();
-        window.__setOfflineBadge = (off) => { badge.style.display = off ? 'block' : 'none'; };
 
         let deferredPrompt = null;
         const installBtn = document.createElement('button');
         installBtn.id = 'installBtn';
         installBtn.type = 'button';
         installBtn.textContent = 'Install app';
-        installBtn.style.cssText = 'position:fixed; top:calc(var(--header-h,64px) + 8px); left:12px; z-index:2147483646; background:#5AC68A; color:#fff; border:none; padding:8px 14px; border-radius:12px; font-size:14px; cursor:pointer; box-shadow:0 4px 14px rgba(15,23,42,.2); display:none';
+        installBtn.style.cssText = 'position:fixed; left:12px; z-index:4000; background:#5AC68A; color:#fff; border:none; padding:8px 14px; border-radius:12px; font-size:14px; cursor:pointer; box-shadow:0 4px 14px rgba(15,23,42,.2); display:none';
         document.body.appendChild(installBtn);
-        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; installBtn.style.display = 'inline-flex'; });
+
+        // Keep the chips clear of the header, the map key (legend), and the
+        // settings button. On mobile the legend fills the top, so drop the chips
+        // just below it; on desktop the legend is bottom-left, so the top-left
+        // corner under the header is already clear.
+        function placeChips(){
+          const headerH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 64;
+          let top = headerH + 8;
+          const lg = document.getElementById('legend');
+          if (lg){
+            const b = lg.getBoundingClientRect();
+            if (b.height > 0 && b.top < window.innerHeight * 0.5){
+              top = Math.max(top, Math.round(b.bottom) + 8);
+            }
+          }
+          badge.style.top = top + 'px';
+          installBtn.style.top = (top + 40) + 'px';
+        }
+        placeChips();
+        window.addEventListener('resize', placeChips);
+        window.addEventListener('orientationchange', placeChips);
+        try {
+          const lg = document.getElementById('legend');
+          if (lg && 'MutationObserver' in window){
+            new MutationObserver(placeChips).observe(lg, { childList: true, subtree: true, attributes: true });
+          }
+        } catch {}
+
+        const refresh = () => { badge.style.display = navigator.onLine ? 'none' : 'block'; if (!navigator.onLine) placeChips(); };
+        window.addEventListener('online', refresh);
+        window.addEventListener('offline', refresh);
+        refresh();
+        window.__setOfflineBadge = (off) => { badge.style.display = off ? 'block' : 'none'; if (off) placeChips(); };
+
+        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; installBtn.style.display = 'inline-flex'; placeChips(); });
         installBtn.addEventListener('click', async () => {
           if (!deferredPrompt) return;
           installBtn.style.display = 'none';
